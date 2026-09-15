@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const attendanceSchema = new mongoose.Schema(
+const resultSchema = new mongoose.Schema(
   {
     student: {
       type: mongoose.Schema.Types.ObjectId,
@@ -20,15 +20,28 @@ const attendanceSchema = new mongoose.Schema(
       required: true,
     },
 
-    date: {
-      type: Date,
+    examType: {
+      type: String,
+      enum: ["first-term", "mid-term", "final", "practical"],
       required: true,
     },
 
-    status: {
-      type: String,
-      enum: ["present", "absent", "late", "leave"],
+    marksObtained: {
+      type: Number,
       required: true,
+      min: 0,
+    },
+
+    totalMarks: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+
+    grade: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
     remarks: {
@@ -42,15 +55,15 @@ const attendanceSchema = new mongoose.Schema(
   },
 );
 
-attendanceSchema.index(
+resultSchema.index(
   {
     student: 1,
     subject: 1,
-    date: 1,
+    examType: 1,
   },
   {
     unique: true,
   },
 );
 
-module.exports = mongoose.model("Attendance", attendanceSchema);
+module.exports = mongoose.model("Result", resultSchema);

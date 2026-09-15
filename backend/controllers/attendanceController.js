@@ -6,12 +6,14 @@ const markAttendance = async (req, res) => {
   try {
     const { student, subject, date, status, remarks } = req.body;
 
+    // Required fields
     if (!student || !subject || !date || !status) {
       return res.status(400).json({
         message: "Student, subject, date and status are required",
       });
     }
 
+    // Find student
     const studentExists = await Student.findById(student);
 
     if (!studentExists) {
@@ -20,6 +22,7 @@ const markAttendance = async (req, res) => {
       });
     }
 
+    // Find subject
     const subjectExists = await Subject.findById(subject);
 
     if (!subjectExists) {
@@ -28,10 +31,40 @@ const markAttendance = async (req, res) => {
       });
     }
 
+    // Check teacher is assigned to this subject
+    if (
+      !subjectExists.teacher ||
+      subjectExists.teacher.toString() !== req.user.id.toString()
+    ) {
+      return res.status(403).json({
+        message: "You are not assigned to this subject",
+      });
+    }
+
+    // Check student belongs to same course and semester
+    if (
+      studentExists.course !== subjectExists.course ||
+      studentExists.semester !== subjectExists.semester
+    ) {
+      return res.status(403).json({
+        message: "This student is not enrolled in this subject",
+      });
+    }
+
+    const attendanceDate = new Date(date);
+
+    // Check valid date
+    if (Number.isNaN(attendanceDate.getTime())) {
+      return res.status(400).json({
+        message: "Invalid date",
+      });
+    }
+
+    // Check duplicate attendance
     const existingAttendance = await Attendance.findOne({
       student,
       subject,
-      date: new Date(date),
+      date: attendanceDate,
     });
 
     if (existingAttendance) {
@@ -40,15 +73,17 @@ const markAttendance = async (req, res) => {
       });
     }
 
+    // Create attendance
     const attendance = await Attendance.create({
       student,
       subject,
       teacher: req.user.id,
-      date: new Date(date),
+      date: attendanceDate,
       status,
       remarks: remarks || "",
     });
 
+    // Populate response
     const populatedAttendance = await Attendance.findById(attendance._id)
       .populate("student", "studentId course semester section")
       .populate("subject", "name code course semester")
@@ -59,10 +94,11 @@ const markAttendance = async (req, res) => {
       attendance: populatedAttendance,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Mark attendance error:", error);
 
     res.status(500).json({
       message: "Server error",
+      error: error.message,
     });
   }
 };

@@ -4,12 +4,18 @@ const {
   createStudentProfile,
   getMyProfile,
   updateMyProfile,
+  getAllStudents,
+  createStudentByAdmin,
 } = require("../controllers/studentController");
 
 const protect = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
 
 const router = express.Router();
+
+router.post("/", protect, authorizeRoles("admin"), createStudentByAdmin);
+
+router.get("/", protect, authorizeRoles("admin"), getAllStudents);
 
 router.post(
   "/profile",
@@ -18,16 +24,8 @@ router.post(
   createStudentProfile,
 );
 
-router.get("/profile",
-    protect,
-    authorizeRoles("student"),
-    getMyProfile
-);
+router.get("/profile", protect, authorizeRoles("student"), getMyProfile);
 
-router.put("/profile",
-    protect,
-    authorizeRoles("student"),
-    updateMyProfile
-);
+router.put("/profile", protect, authorizeRoles("student"), updateMyProfile);
 
 module.exports = router;

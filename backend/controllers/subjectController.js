@@ -1,5 +1,8 @@
 const Subject = require("../models/Subject");
+const Student = require("../models/Student");
+const User = require("../models/User");
 
+// Create Subject
 const createSubject = async (req, res) => {
   try {
     const { name, code, course, semester, creditHours, description, teacher } =
@@ -20,6 +23,7 @@ const createSubject = async (req, res) => {
         message: "Subject with this code already exists",
       });
     }
+
     const subject = await Subject.create({
       name,
       code,
@@ -31,17 +35,19 @@ const createSubject = async (req, res) => {
     });
 
     res.status(201).json({
-      message: "Subject created scccessfully",
+      message: "Subject created successfully",
       subject,
     });
   } catch (error) {
     console.error(error);
+
     res.status(500).json({
       message: "Server error",
     });
   }
 };
 
+// Get All Subjects
 const getAllSubjects = async (req, res) => {
   try {
     const subjects = await Subject.find()
@@ -49,17 +55,19 @@ const getAllSubjects = async (req, res) => {
       .sort({ semester: 1, name: 1 });
 
     res.status(200).json({
-      const: subjects.length,
+      count: subjects.length,
       subjects,
     });
   } catch (error) {
     console.error(error);
+
     res.status(500).json({
       message: "Server error",
     });
   }
 };
 
+// Get Subjects By Semester
 const getSubjectBySemester = async (req, res) => {
   try {
     const { semester } = req.query;
@@ -84,21 +92,22 @@ const getSubjectBySemester = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+
     res.status(500).json({
       message: "Server error",
     });
   }
 };
 
+// Get My Subjects
 const getMySubjects = async (req, res) => {
   try {
-    const Student = require("../models/Student");
     const student = await Student.findOne({
       user: req.user.id,
     });
 
     if (!student) {
-      return res.status(400).json({
+      return res.status(404).json({
         message: "Student profile not found",
       });
     }
@@ -113,8 +122,7 @@ const getMySubjects = async (req, res) => {
 
     res.status(200).json({
       student: {
-        studentId: student,
-        studentId,
+        studentId: student.studentId,
         course: student.course,
         semester: student.semester,
       },
@@ -123,8 +131,67 @@ const getMySubjects = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+
     res.status(500).json({
       message: "Server error",
+    });
+  }
+};
+
+// Assign Teacher To Subject
+const assignTeacher = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { teacherId } = req.body;
+
+    if (!teacherId) {
+      return res.status(400).json({
+        message: "Teacher ID is required",
+      });
+    }
+
+    // Check subject
+    const subject = await Subject.findById(id);
+
+    if (!subject) {
+      return res.status(404).json({
+        message: "Subject not found",
+      });
+    }
+
+    // Check teacher user
+    const teacher = await User.findOne({
+      _id: teacherId,
+      role: "teacher",
+      isActive: true,
+    });
+
+    if (!teacher) {
+      return res.status(404).json({
+        message: "Teacher not found",
+      });
+    }
+
+    // Assign teacher
+    subject.teacher = teacher._id;
+
+    await subject.save();
+
+    const updatedSubject = await Subject.findById(subject._id).populate(
+      "teacher",
+      "name email role",
+    );
+
+    res.status(200).json({
+      message: "Teacher assigned successfully",
+      subject: updatedSubject,
+    });
+  } catch (error) {
+    console.error("Assign teacher error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
     });
   }
 };
@@ -134,4 +201,5 @@ module.exports = {
   getAllSubjects,
   getSubjectBySemester,
   getMySubjects,
+  assignTeacher,
 };
