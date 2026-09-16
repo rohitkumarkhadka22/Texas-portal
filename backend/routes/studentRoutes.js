@@ -13,10 +13,7 @@ const authorizeRoles = require("../middleware/roleMiddleware");
 
 const router = express.Router();
 
-router.post("/", protect, authorizeRoles("admin"), createStudentByAdmin);
-
-router.get("/", protect, authorizeRoles("admin"), getAllStudents);
-
+// Student own profile
 router.post(
   "/profile",
   protect,
@@ -27,5 +24,11 @@ router.post(
 router.get("/profile", protect, authorizeRoles("student"), getMyProfile);
 
 router.put("/profile", protect, authorizeRoles("student"), updateMyProfile);
+
+// Admin - all students
+router.get("/", protect, authorizeRoles("admin"), getAllStudents);
+
+// Admin - create student
+router.post("/admin", protect, authorizeRoles("admin"), createStudentByAdmin);
 
 module.exports = router;

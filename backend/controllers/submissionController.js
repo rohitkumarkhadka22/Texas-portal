@@ -2,18 +2,21 @@ const Submission = require("../models/Submission");
 const Assignment = require("../models/Assignment");
 const Student = require("../models/Student");
 
+// ==========================================
+// SUBMIT ASSIGNMENT
+// ==========================================
 const submitAssignment = async (req, res) => {
   try {
     const { assignmentId, answerText } = req.body;
 
-    // Required field
+    // 1. Required assignment ID
     if (!assignmentId) {
       return res.status(400).json({
         message: "Assignment ID is required",
       });
     }
 
-    // Find student profile
+    // 2. Find student profile
     const student = await Student.findOne({
       user: req.user.id,
     });
@@ -24,7 +27,7 @@ const submitAssignment = async (req, res) => {
       });
     }
 
-    // Find assignment
+    // 3. Find assignment
     const assignment = await Assignment.findById(assignmentId);
 
     if (!assignment) {
@@ -33,65 +36,71 @@ const submitAssignment = async (req, res) => {
       });
     }
 
-    // Check assignment is published
+    // 4. Check published
     if (!assignment.isPublished) {
       return res.status(400).json({
         message: "This assignment is not published",
       });
     }
 
-    // Check student course and semester
-    if (
-      assignment.course !== student.course ||
-      assignment.semester !== student.semester
-    ) {
+    // 5. Check course
+    if (assignment.course !== student.course) {
       return res.status(403).json({
         message: "This assignment is not assigned to you",
       });
     }
 
-    // Count previous attempts
+    // 6. Check semester
+    if (assignment.semester !== student.semester) {
+      return res.status(403).json({
+        message: "This assignment is not assigned to you",
+      });
+    }
+
+    // 7. Check answer or PDF
+    if (!answerText?.trim() && !req.file) {
+      return res.status(400).json({
+        message: "Please provide answer text or upload a PDF",
+      });
+    }
+
+    // 8. Count previous submissions
     const previousSubmissions = await Submission.countDocuments({
       assignment: assignmentId,
       student: student._id,
     });
 
-    // Maximum 3 attempts
+    // 9. Maximum 3 attempts
     if (previousSubmissions >= 3) {
       return res.status(400).json({
         message: "Maximum 3 submission attempts allowed",
       });
     }
 
+    // 10. Attempt number
     const attemptNumber = previousSubmissions + 1;
 
-    // PDF file URL
+    // 11. File URL
     const fileUrl = req.file ? `/uploads/assignments/${req.file.filename}` : "";
 
-    // Check answer/file
-    if (!answerText && !req.file) {
-      return res.status(400).json({
-        message: "Please provide answer text or upload a PDF",
-      });
-    }
-
-    // Check late submission
+    // 12. Check late submission
     const now = new Date();
     const dueDate = new Date(assignment.dueDate);
 
     const status = now > dueDate ? "late" : "submitted";
 
-    // Create submission
+    // 13. Create submission
     const submission = await Submission.create({
       assignment: assignmentId,
       student: student._id,
       attemptNumber,
-      answerText: answerText || "",
+      answerText: answerText?.trim() || "",
       fileUrl,
       submittedAt: now,
       status,
     });
 
+    // 14. Populate response
     const populatedSubmission = await Submission.findById(submission._id)
       .populate("assignment", "title description dueDate totalMarks")
       .populate("student", "studentId course semester section");
@@ -101,7 +110,29 @@ const submitAssignment = async (req, res) => {
       submission: populatedSubmission,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Submit assignment error:", error);
+
+    // Invalid MongoDB ObjectId
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid assignment ID",
+      });
+    }
+
+    // Duplicate attempt
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "This submission attempt already exists",
+      });
+    }
+
+    // Mongoose validation
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Invalid submission data",
+        error: error.message,
+      });
+    }
 
     res.status(500).json({
       message: "Server error",
@@ -109,11 +140,13 @@ const submitAssignment = async (req, res) => {
   }
 };
 
+// ==========================================
+// GET SUBMISSIONS FOR TEACHER
+// ==========================================
 const getSubmissionsForTeacher = async (req, res) => {
   try {
     const { assignmentId } = req.query;
 
-    // Find assignments created by logged-in teacher
     const teacherAssignments = await Assignment.find({
       teacher: req.user.id,
     }).select("_id");
@@ -122,7 +155,7 @@ const getSubmissionsForTeacher = async (req, res) => {
       (assignment) => assignment._id,
     );
 
-    // If specific assignmentId is provided
+    // Specific assignment
     if (assignmentId) {
       const isTeacherAssignment = assignmentIds.some(
         (id) => id.toString() === assignmentId,
@@ -151,18 +184,28 @@ const getSubmissionsForTeacher = async (req, res) => {
   } catch (error) {
     console.error("Get teacher submissions error:", error);
 
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid assignment ID",
+      });
+    }
+
     res.status(500).json({
       message: "Server error",
       error: error.message,
     });
   }
 };
+
+// ==========================================
+// GRADE SUBMISSION
+// ==========================================
 const gradeSubmission = async (req, res) => {
   try {
     const { id } = req.params;
     const { marks, feedback } = req.body;
 
-    // Find submission
+    // 1. Find submission
     const submission = await Submission.findById(id).populate(
       "assignment",
       "title totalMarks teacher",
@@ -174,42 +217,42 @@ const gradeSubmission = async (req, res) => {
       });
     }
 
-    // Check teacher owns this assignment
+    // 2. Check teacher ownership
     if (submission.assignment.teacher.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         message: "You are not allowed to grade this submission",
       });
     }
 
-    // Marks required
+    // 3. Marks required
     if (marks === undefined || marks === null) {
       return res.status(400).json({
         message: "Marks are required",
       });
     }
 
-    // Convert marks to number
+    // 4. Convert marks
     const numericMarks = Number(marks);
 
-    if (Number.isNaN(numericMarks)) {
+    if (!Number.isFinite(numericMarks)) {
       return res.status(400).json({
         message: "Marks must be a valid number",
       });
     }
 
-    // Marks validation
+    // 5. Validate marks
     if (numericMarks < 0 || numericMarks > submission.assignment.totalMarks) {
       return res.status(400).json({
         message: `Marks must be between 0 and ${submission.assignment.totalMarks}`,
       });
     }
 
-    // Update directly
+    // 6. Update submission
     const updatedSubmission = await Submission.findByIdAndUpdate(
       id,
       {
         marks: numericMarks,
-        feedback: feedback || "",
+        feedback: feedback?.trim() || "",
         status: "graded",
       },
       {
@@ -227,6 +270,12 @@ const gradeSubmission = async (req, res) => {
   } catch (error) {
     console.error("Grade submission error:", error);
 
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid submission ID",
+      });
+    }
+
     res.status(500).json({
       message: "Server error",
       error: error.message,
@@ -234,9 +283,11 @@ const gradeSubmission = async (req, res) => {
   }
 };
 
+// ==========================================
+// GET MY SUBMISSIONS
+// ==========================================
 const getMySubmissions = async (req, res) => {
   try {
-    // Find student profile
     const student = await Student.findOne({
       user: req.user.id,
     });
@@ -247,7 +298,6 @@ const getMySubmissions = async (req, res) => {
       });
     }
 
-    // Find student's submissions
     const submissions = await Submission.find({
       student: student._id,
     })

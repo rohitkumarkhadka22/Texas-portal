@@ -4,7 +4,7 @@ const fs = require("fs");
 
 const uploadDir = path.join(__dirname, "../uploads/assignments");
 
-// Folder automatically create
+// Create upload folder if it doesn't exist
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -16,32 +16,32 @@ const storage = multer.diskStorage({
 
   filename: (req, file, cb) => {
     const uniqueName =
-      Date.now() +
-      "-" +
-      Math.round(Math.random() * 1e9) +
-      path.extname(file.originalname);
+      Date.now() + "-" + Math.round(Math.random() * 1e9) + ".pdf";
 
     cb(null, uniqueName);
   },
 });
 
-// Only PDF allowed
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === "application/pdf") {
-    cb(null, true);
-  } else {
-    cb(new Error("Only PDF files are allowed"), false);
+  const extension = path.extname(file.originalname).toLowerCase();
+
+  const isPdfMime = file.mimetype === "application/pdf";
+  const isPdfExtension = extension === ".pdf";
+
+  if (isPdfMime && isPdfExtension) {
+    return cb(null, true);
   }
+
+  return cb(new Error("Only PDF files are allowed"), false);
 };
 
 const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, 
+    fileSize: 5 * 1024 * 1024, // 5 MB
+    files: 1,
   },
 });
-
-
 
 module.exports = upload;

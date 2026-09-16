@@ -84,19 +84,55 @@ const createTeacher = async (req, res) => {
 
 const getAllTeachers = async (req, res) => {
   try {
-    const teachers = await Teacher.find()
-      .populate("user", "name email phone profileImage role")
-      .sort({ createdAt: -1 });
+    const { page = 1, limit = 10, search = "", department = "" } = req.query;
+
+    const pageNumber = Math.max(parseInt(page), 1);
+    const limitNumber = Math.max(parseInt(limit), 1);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Teacher search/filter
+    const teacherQuery = {};
+
+    // Department filter
+    if (department) {
+      teacherQuery.department = {
+        $regex: department,
+        $options: "i",
+      };
+    }
+
+    // Search by teacher ID
+    if (search) {
+      teacherQuery.teacherId = {
+        $regex: search,
+        $options: "i",
+      };
+    }
+
+    const totalTeachers = await Teacher.countDocuments(teacherQuery);
+
+    const teachers = await Teacher.find(teacherQuery)
+      .populate("user", "name email phone profileImage role isActive")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
+
+    const totalPages = Math.ceil(totalTeachers / limitNumber);
 
     res.status(200).json({
       count: teachers.length,
+      totalTeachers,
+      page: pageNumber,
+      limit: limitNumber,
+      totalPages,
       teachers,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Get all teachers error:", error);
 
     res.status(500).json({
       message: "Server error",
+      error: error.message,
     });
   }
 };

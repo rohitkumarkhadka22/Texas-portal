@@ -2,15 +2,39 @@ const Subject = require("../models/Subject");
 const Student = require("../models/Student");
 const User = require("../models/User");
 
-// Create Subject
 const createSubject = async (req, res) => {
   try {
-    const { name, code, course, semester, creditHours, description, teacher } =
-      req.body;
+    const { name, code, course, semester, creditHours, description } = req.body;
 
-    if (!name || !code || !course || !semester || !creditHours) {
+    if (
+      !name ||
+      !code ||
+      !course ||
+      semester === undefined ||
+      creditHours === undefined
+    ) {
       return res.status(400).json({
         message: "Name, code, course, semester and credit hours are required",
+      });
+    }
+
+    const semesterNumber = Number(semester);
+
+    if (
+      !Number.isInteger(semesterNumber) ||
+      semesterNumber < 1 ||
+      semesterNumber > 8
+    ) {
+      return res.status(400).json({
+        message: "Semester must be a whole number between 1 and 8",
+      });
+    }
+
+    const creditHoursNumber = Number(creditHours);
+
+    if (!Number.isFinite(creditHoursNumber) || creditHoursNumber <= 0) {
+      return res.status(400).json({
+        message: "Credit hours must be greater than 0",
       });
     }
 
@@ -19,19 +43,18 @@ const createSubject = async (req, res) => {
     });
 
     if (existingSubject) {
-      return res.status(400).json({
+      return res.status(409).json({
         message: "Subject with this code already exists",
       });
     }
 
     const subject = await Subject.create({
       name,
-      code,
+      code: code.toUpperCase(),
       course,
-      semester,
-      creditHours,
+      semester: semesterNumber,
+      creditHours: creditHoursNumber,
       description: description || "",
-      teacher: teacher || null,
     });
 
     res.status(201).json({
@@ -39,7 +62,26 @@ const createSubject = async (req, res) => {
       subject,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Create subject error:", error);
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "Subject with this code already exists",
+      });
+    }
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Invalid subject data",
+        error: error.message,
+      });
+    }
+
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid data format",
+      });
+    }
 
     res.status(500).json({
       message: "Server error",
@@ -47,7 +89,6 @@ const createSubject = async (req, res) => {
   }
 };
 
-// Get All Subjects
 const getAllSubjects = async (req, res) => {
   try {
     const subjects = await Subject.find()
@@ -67,7 +108,6 @@ const getAllSubjects = async (req, res) => {
   }
 };
 
-// Get Subjects By Semester
 const getSubjectBySemester = async (req, res) => {
   try {
     const { semester } = req.query;
@@ -99,7 +139,6 @@ const getSubjectBySemester = async (req, res) => {
   }
 };
 
-// Get My Subjects
 const getMySubjects = async (req, res) => {
   try {
     const student = await Student.findOne({
@@ -138,7 +177,6 @@ const getMySubjects = async (req, res) => {
   }
 };
 
-// Assign Teacher To Subject
 const assignTeacher = async (req, res) => {
   try {
     const { id } = req.params;
@@ -150,7 +188,6 @@ const assignTeacher = async (req, res) => {
       });
     }
 
-    // Check subject
     const subject = await Subject.findById(id);
 
     if (!subject) {
@@ -159,7 +196,6 @@ const assignTeacher = async (req, res) => {
       });
     }
 
-    // Check teacher user
     const teacher = await User.findOne({
       _id: teacherId,
       role: "teacher",
@@ -172,7 +208,6 @@ const assignTeacher = async (req, res) => {
       });
     }
 
-    // Assign teacher
     subject.teacher = teacher._id;
 
     await subject.save();

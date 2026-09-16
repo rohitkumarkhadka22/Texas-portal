@@ -22,7 +22,7 @@ const resultSchema = new mongoose.Schema(
 
     examType: {
       type: String,
-      enum: ["first-term", "mid-term", "final", "practical"],
+      enum: ["pre-board", "final"],
       required: true,
     },
 
@@ -55,15 +55,6 @@ const resultSchema = new mongoose.Schema(
   },
 );
 
-resultSchema.index(
-  {
-    student: 1,
-    subject: 1,
-    examType: 1,
-  },
-  {
-    unique: true,
-  },
-);
+resultSchema.index({ student: 1, subject: 1, examType: 1 }, { unique: true });
 
 module.exports = mongoose.model("Result", resultSchema);

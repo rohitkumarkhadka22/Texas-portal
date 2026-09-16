@@ -7,7 +7,6 @@ const createResult = async (req, res) => {
     const { student, subject, examType, marksObtained, totalMarks, remarks } =
       req.body;
 
-    // Required fields
     if (
       !student ||
       !subject ||
@@ -21,53 +20,18 @@ const createResult = async (req, res) => {
       });
     }
 
-    // Find student
-    const studentExists = await Student.findById(student);
+    const allowedExamTypes = ["pre-board", "final"];
 
-    if (!studentExists) {
-      return res.status(404).json({
-        message: "Student not found",
-      });
-    }
-
-    // Find subject
-    const subjectExists = await Subject.findById(subject);
-
-    if (!subjectExists) {
-      return res.status(404).json({
-        message: "Subject not found",
-      });
-    }
-
-    // Check teacher assigned to subject
-    if (!subjectExists.teacher) {
+    if (!allowedExamTypes.includes(examType)) {
       return res.status(400).json({
-        message: "No teacher is assigned to this subject",
+        message: "Exam type must be either pre-board or final",
       });
     }
 
-    // Only assigned teacher can create result
-    if (subjectExists.teacher.toString() !== req.user.id.toString()) {
-      return res.status(403).json({
-        message: "You are not allowed to create result for this subject",
-      });
-    }
-
-    // Check student course and semester
-    if (
-      studentExists.course !== subjectExists.course ||
-      studentExists.semester !== subjectExists.semester
-    ) {
-      return res.status(403).json({
-        message: "This student does not belong to this subject",
-      });
-    }
-
-    // Validate marks
     const obtained = Number(marksObtained);
     const total = Number(totalMarks);
 
-    if (Number.isNaN(obtained) || Number.isNaN(total)) {
+    if (!Number.isFinite(obtained) || !Number.isFinite(total)) {
       return res.status(400).json({
         message: "Marks must be valid numbers",
       });
@@ -79,16 +43,76 @@ const createResult = async (req, res) => {
       });
     }
 
-    if (obtained < 0 || obtained > total) {
+    if (obtained < 0) {
       return res.status(400).json({
-        message: `Marks obtained must be between 0 and ${total}`,
+        message: "Marks obtained cannot be negative",
       });
     }
 
-    // Calculate percentage
+    if (obtained > total) {
+      return res.status(400).json({
+        message: `Marks obtained cannot be greater than total marks (${total})`,
+      });
+    }
+
+    const studentExists = await Student.findById(student);
+
+    if (!studentExists) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+
+    const subjectExists = await Subject.findById(subject);
+
+    if (!subjectExists) {
+      return res.status(404).json({
+        message: "Subject not found",
+      });
+    }
+
+    if (!subjectExists.teacher) {
+      return res.status(400).json({
+        message: "No teacher is assigned to this subject",
+      });
+    }
+
+    if (subjectExists.teacher.toString() !== req.user.id.toString()) {
+      return res.status(403).json({
+        message: "You are not allowed to create result for this subject",
+      });
+    }
+
+    // =========================
+    // 8. Student course/semester
+    // =========================
+    if (
+      studentExists.course !== subjectExists.course ||
+      studentExists.semester !== subjectExists.semester
+    ) {
+      return res.status(403).json({
+        message: "This student does not belong to this subject",
+      });
+    }
+
+    // =========================
+    // 9. Duplicate result
+    // =========================
+    const existingResult = await Result.findOne({
+      student,
+      subject,
+      examType,
+    });
+
+    if (existingResult) {
+      return res.status(409).json({
+        message:
+          "Result already exists for this student, subject and exam type",
+      });
+    }
+
     const percentage = (obtained / total) * 100;
 
-    // Calculate grade
     let grade;
 
     if (percentage >= 90) {
@@ -107,21 +131,6 @@ const createResult = async (req, res) => {
       grade = "F";
     }
 
-    // Check duplicate result
-    const existingResult = await Result.findOne({
-      student,
-      subject,
-      examType,
-    });
-
-    if (existingResult) {
-      return res.status(400).json({
-        message:
-          "Result already exists for this student, subject and exam type",
-      });
-    }
-
-    // Create result
     const result = await Result.create({
       student,
       subject,
@@ -133,7 +142,6 @@ const createResult = async (req, res) => {
       remarks: remarks || "",
     });
 
-    // Populate response
     const populatedResult = await Result.findById(result._id)
       .populate("student", "studentId course semester section")
       .populate("subject", "name code course semester creditHours")
@@ -146,9 +154,31 @@ const createResult = async (req, res) => {
   } catch (error) {
     console.error("Create result error:", error);
 
+    // Duplicate key error from MongoDB
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message:
+          "Result already exists for this student, subject and exam type",
+      });
+    }
+
+    // Invalid MongoDB ObjectId
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid student or subject ID",
+      });
+    }
+
+    // Mongoose validation error
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Invalid result data",
+        error: error.message,
+      });
+    }
+
     res.status(500).json({
       message: "Server error",
-      error: error.message,
     });
   }
 };
