@@ -1,57 +1,27 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
+  ArrowUpRight,
   BookOpen,
-  ClipboardCheck,
-  FileText,
-  GraduationCap,
   CalendarDays,
-  ClipboardList,
-  CreditCard,
-  Bell,
-  User,
-  LogOut,
-  Menu,
-  X,
-  ChevronRight,
+  ClipboardCheck,
   Clock3,
-  CheckCircle2,
-  AlertCircle,
-  CircleUserRound,
-  FileCheck2,
+  FileText,
 } from "lucide-react";
-
 import api from "../services/api";
 
 const StudentAssignments = () => {
-  const navigate = useNavigate();
-
-  const [user, setUser] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    const token = localStorage.getItem("token");
-
-    if (!storedUser || !token) {
-      navigate("/login");
-      return;
-    }
-
-    try {
-      setUser(JSON.parse(storedUser));
-    } catch (error) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      navigate("/login");
-      return;
-    }
-
     const fetchAssignments = async () => {
       try {
+        setLoading(true);
+        setError("");
+
+        const token = localStorage.getItem("token");
+
         const response = await api.get("/assignments/student", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -60,15 +30,14 @@ const StudentAssignments = () => {
 
         const data = response.data;
 
-        if (Array.isArray(data)) {
-          setAssignments(data);
-        } else {
-          setAssignments(data.assignments || []);
-        }
-      } catch (error) {
-        console.error(
-          "Assignments error:",
-          error.response?.data || error.message,
+        setAssignments(
+          Array.isArray(data) ? data : data.assignments || data.data || [],
+        );
+      } catch (err) {
+        console.error("Failed to fetch assignments:", err);
+
+        setError(
+          err.response?.data?.message || "Unable to load your assignments.",
         );
       } finally {
         setLoading(false);
@@ -76,531 +45,335 @@ const StudentAssignments = () => {
     };
 
     fetchAssignments();
-  }, [navigate]);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
-
-  const navItems = [
-    {
-      label: "Dashboard",
-      icon: LayoutDashboard,
-      path: "/student/dashboard",
-    },
-    {
-      label: "My Subjects",
-      icon: BookOpen,
-      path: "/student/subjects",
-    },
-    {
-      label: "Attendance",
-      icon: ClipboardCheck,
-      path: "/student/attendance",
-    },
-    {
-      label: "Assignments",
-      icon: FileText,
-      path: "/student/assignments",
-    },
-    {
-      label: "Results",
-      icon: GraduationCap,
-      path: "/student/results",
-    },
-    {
-      label: "Timetable",
-      icon: CalendarDays,
-      path: "/student/timetable",
-    },
-    {
-      label: "Exam Schedule",
-      icon: ClipboardList,
-      path: "/student/exams",
-    },
-    {
-      label: "Fees",
-      icon: CreditCard,
-      path: "/student/fees",
-    },
-    {
-      label: "Notices",
-      icon: Bell,
-      path: "/student/notices",
-    },
-    {
-      label: "My Profile",
-      icon: User,
-      path: "/student/profile",
-    },
-  ];
-
-  const handleNavigation = (path) => {
-    setSidebarOpen(false);
-    navigate(path);
-  };
+  }, []);
 
   const formatDate = (date) => {
     if (!date) return "No due date";
 
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date;
+    }
+
+    return parsedDate.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
+      year: "numeric",
     });
   };
 
-  const getStatus = (dueDate) => {
-    if (!dueDate) return "No deadline";
+  const isOverdue = (date) => {
+    if (!date) return false;
 
-    const today = new Date();
-    const due = new Date(dueDate);
+    const dueDate = new Date(date);
 
-    today.setHours(0, 0, 0, 0);
-    due.setHours(0, 0, 0, 0);
-
-    const difference = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-
-    if (difference < 0) {
-      return "Overdue";
+    if (Number.isNaN(dueDate.getTime())) {
+      return false;
     }
 
-    if (difference === 0) {
-      return "Due Today";
-    }
-
-    if (difference <= 3) {
-      return "Due Soon";
-    }
-
-    return "Upcoming";
+    return dueDate < new Date();
   };
 
-  if (!user) return null;
+  const getTeacherName = (assignment) => {
+    return (
+      assignment?.teacher?.name ||
+      assignment?.teacher?.user?.name ||
+      assignment?.teacher?.fullName ||
+      "Instructor not assigned"
+    );
+  };
 
-  const overdueCount = assignments.filter(
-    (assignment) => getStatus(assignment.dueDate) === "Overdue",
-  ).length;
+  const getSubjectName = (assignment) => {
+    return (
+      assignment?.subject?.name ||
+      assignment?.subject?.title ||
+      assignment?.subjectName ||
+      assignment?.subject?.code ||
+      "Subject"
+    );
+  };
 
-  const dueSoonCount = assignments.filter((assignment) => {
-    const status = getStatus(assignment.dueDate);
-    return status === "Due Soon" || status === "Due Today";
-  }).length;
+  const publishedAssignments = assignments.filter(
+    (assignment) => assignment?.isPublished !== false,
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-slate-900/40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+    <section className="space-y-6">
+      {/* HEADER */}
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-black/30">
+            Academic
+          </p>
+
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-black sm:text-4xl">
+            Assignments
+          </h1>
+
+          <p className="mt-2 max-w-xl text-[11px] leading-5 text-black/40">
+            Keep track of your coursework, deadlines, subjects, and assignment
+            requirements.
+          </p>
+        </div>
+
+        <div className="glass-light flex w-fit items-center gap-3 rounded-[18px] px-4 py-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-black/[0.05]">
+            <ClipboardCheck size={16} strokeWidth={1.7} />
+          </div>
+
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.18em] text-black/30">
+              Available
+            </p>
+
+            <p className="mt-0.5 text-sm font-semibold text-black">
+              {publishedAssignments.length} Assignments
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* STATS */}
+      {!loading && !error && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <div className="glass-light rounded-[20px] p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-black/30">
+                Total
+              </p>
+
+              <FileText size={15} className="text-black/35" />
+            </div>
+
+            <p className="mt-5 text-2xl font-semibold tracking-[-0.04em]">
+              {publishedAssignments.length}
+            </p>
+
+            <p className="mt-1 text-[9px] text-black/35">
+              Published assignments
+            </p>
+          </div>
+
+          <div className="glass-light rounded-[20px] p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-black/30">
+                Upcoming
+              </p>
+
+              <CalendarDays size={15} className="text-black/35" />
+            </div>
+
+            <p className="mt-5 text-2xl font-semibold tracking-[-0.04em]">
+              {
+                publishedAssignments.filter(
+                  (assignment) => !isOverdue(assignment?.dueDate),
+                ).length
+              }
+            </p>
+
+            <p className="mt-1 text-[9px] text-black/35">Active deadlines</p>
+          </div>
+
+          <div className="glass-light rounded-[20px] p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-black/30">
+                Subjects
+              </p>
+
+              <BookOpen size={15} className="text-black/35" />
+            </div>
+
+            <p className="mt-5 text-2xl font-semibold tracking-[-0.04em]">
+              {
+                new Set(
+                  publishedAssignments.map(
+                    (assignment) =>
+                      assignment?.subject?._id ||
+                      assignment?.subject?.code ||
+                      assignment?.subjectName ||
+                      assignment?.subject,
+                  ),
+                ).size
+              }
+            </p>
+
+            <p className="mt-1 text-[9px] text-black/35">With coursework</p>
+          </div>
+        </div>
       )}
 
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white transition-transform duration-300 lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        {/* Logo */}
-        <div className="flex h-20 items-center justify-between border-b border-slate-200 px-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-900 text-white">
-              <span className="text-sm font-bold">TC</span>
-            </div>
+      {/* LOADING */}
+      {loading && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((item) => (
+            <div
+              key={item}
+              className="animate-pulse rounded-[22px] border border-black/[0.06] bg-white/60 p-5"
+            >
+              <div className="h-10 w-10 rounded-[13px] bg-black/[0.07]" />
 
-            <div>
-              <h1 className="text-sm font-bold text-slate-900">
-                Texas College
-              </h1>
+              <div className="mt-5 h-4 w-3/4 rounded bg-black/[0.07]" />
 
-              <p className="text-xs text-slate-500">Student Portal</p>
+              <div className="mt-3 h-3 w-1/2 rounded bg-black/[0.05]" />
+
+              <div className="mt-7 h-3 w-full rounded bg-black/[0.05]" />
+
+              <div className="mt-2 h-3 w-2/3 rounded bg-black/[0.05]" />
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* ERROR */}
+      {!loading && error && (
+        <div className="glass-light rounded-[24px] p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[16px] bg-black/[0.05]">
+            <FileText size={20} className="text-black/40" />
           </div>
 
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
-          >
-            <X size={19} />
-          </button>
+          <h2 className="mt-4 text-sm font-semibold">
+            Unable to load assignments
+          </h2>
+
+          <p className="mt-2 text-[10px] leading-5 text-black/40">{error}</p>
         </div>
+      )}
 
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto px-3 py-5">
-          <p className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Main Menu
-          </p>
+      {/* ASSIGNMENTS */}
+      {!loading && !error && (
+        <div className="glass-light overflow-hidden rounded-[24px]">
+          <div className="border-b border-black/[0.07] px-5 py-5 sm:px-6">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-black/30">
+              Coursework
+            </p>
 
-          <nav className="space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
+            <h2 className="mt-1 text-lg font-semibold tracking-[-0.03em]">
+              Your Assignments
+            </h2>
+          </div>
 
-              const active = item.path === "/student/assignments";
+          {publishedAssignments.length === 0 ? (
+            <div className="p-10 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[16px] bg-black/[0.05]">
+                <ClipboardCheck size={20} className="text-black/40" />
+              </div>
 
-              return (
-                <button
-                  key={item.label}
-                  onClick={() => handleNavigation(item.path)}
-                  className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                    active
-                      ? "bg-blue-50 text-blue-900"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <Icon
-                    size={18}
-                    className={
-                      active
-                        ? "text-blue-900"
-                        : "text-slate-400 group-hover:text-slate-700"
-                    }
-                  />
+              <h3 className="mt-4 text-sm font-semibold">
+                No assignments available
+              </h3>
 
-                  <span>{item.label}</span>
-
-                  {active && (
-                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-900" />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Bottom user */}
-        <div className="border-t border-slate-200 p-4">
-          <div className="mb-3 flex items-center gap-3 rounded-lg bg-slate-50 p-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-900">
-              <CircleUserRound size={20} />
-            </div>
-
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">
-                {user.name}
+              <p className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-black/40">
+                New assignments published by your instructors will appear here.
               </p>
-
-              <p className="text-xs capitalize text-slate-500">{user.role}</p>
             </div>
-          </div>
+          ) : (
+            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+              {publishedAssignments.map((assignment, index) => {
+                const overdue = isOverdue(assignment?.dueDate);
 
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-700"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
-        </div>
-      </aside>
+                return (
+                  <article
+                    key={assignment?._id || assignment?.id || index}
+                    className="group flex flex-col rounded-[21px] border border-black/[0.07] bg-white/55 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-black/[0.14] hover:bg-black hover:text-white hover:shadow-[0_18px_50px_rgba(0,0,0,0.12)]"
+                  >
+                    {/* TOP */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-black/[0.07] bg-black/[0.035] transition-colors duration-300 group-hover:border-white/10 group-hover:bg-white/10">
+                        <FileText
+                          size={18}
+                          strokeWidth={1.6}
+                          className="text-black/60 group-hover:text-white"
+                        />
+                      </div>
 
-      {/* Main */}
-      <div className="lg:pl-64">
-        {/* Topbar */}
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-          <div className="flex h-20 items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
-              >
-                <Menu size={22} />
-              </button>
-
-              <div>
-                <p className="text-xs font-medium text-slate-400">
-                  STUDENT PORTAL
-                </p>
-
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Assignments
-                </h2>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate("/student/notices")}
-                className="relative rounded-lg border border-slate-200 p-2.5 text-slate-600 hover:bg-slate-50"
-              >
-                <Bell size={19} />
-
-                <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-blue-600" />
-              </button>
-
-              <div className="hidden h-8 w-px bg-slate-200 sm:block" />
-
-              <button
-                onClick={() => navigate("/student/profile")}
-                className="flex items-center gap-3"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-900 text-sm font-semibold text-white">
-                  {user.name?.charAt(0)?.toUpperCase()}
-                </div>
-
-                <div className="hidden text-left sm:block">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {user.name}
-                  </p>
-
-                  <p className="text-xs capitalize text-slate-500">
-                    {user.role}
-                  </p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
-          {/* Page heading */}
-          <section className="mb-7">
-            <p className="mb-1 text-sm font-medium text-blue-800">
-              Academic Work
-            </p>
-
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              My Assignments
-            </h1>
-
-            <p className="mt-2 text-sm text-slate-500">
-              View your assignments, deadlines, subjects and marks.
-            </p>
-          </section>
-
-          {/* Summary cards */}
-          <section className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <SummaryCard
-              icon={FileText}
-              label="Total Assignments"
-              value={loading ? "—" : assignments.length}
-              description="Published assignments"
-              iconClass="bg-blue-50 text-blue-800"
-            />
-
-            <SummaryCard
-              icon={Clock3}
-              label="Due Soon"
-              value={loading ? "—" : dueSoonCount}
-              description="Due within 3 days"
-              iconClass="bg-amber-50 text-amber-700"
-            />
-
-            <SummaryCard
-              icon={AlertCircle}
-              label="Overdue"
-              value={loading ? "—" : overdueCount}
-              description="Past deadline"
-              iconClass="bg-red-50 text-red-700"
-            />
-          </section>
-
-          {/* Assignment list */}
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Assignment List
-                </h3>
-
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Your currently published academic assignments
-                </p>
-              </div>
-
-              {!loading && (
-                <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600">
-                  {assignments.length} assignment
-                  {assignments.length !== 1 ? "s" : ""}
-                </div>
-              )}
-            </div>
-
-            <div className="p-5">
-              {loading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((item) => (
-                    <div
-                      key={item}
-                      className="animate-pulse rounded-xl border border-slate-200 p-5"
-                    >
-                      <div className="h-4 w-48 rounded bg-slate-200" />
-
-                      <div className="mt-3 h-3 w-72 rounded bg-slate-200" />
-
-                      <div className="mt-5 h-3 w-32 rounded bg-slate-200" />
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.13em] ${
+                          overdue
+                            ? "border-black/[0.10] bg-black/[0.05] text-black/55 group-hover:border-white/10 group-hover:bg-white/10 group-hover:text-white/60"
+                            : "border-black/[0.07] bg-black/[0.025] text-black/40 group-hover:border-white/10 group-hover:bg-white/10 group-hover:text-white/50"
+                        }`}
+                      >
+                        {overdue ? "Overdue" : "Active"}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              ) : assignments.length === 0 ? (
-                <EmptyState />
-              ) : (
-                <div className="space-y-4">
-                  {assignments.map((assignment) => {
-                    const status = getStatus(assignment.dueDate);
 
-                    return (
-                      <AssignmentCard
-                        key={assignment._id}
-                        assignment={assignment}
-                        status={status}
-                        formatDate={formatDate}
-                        onClick={() =>
-                          navigate(`/student/assignments/${assignment._id}`)
-                        }
+                    {/* TITLE */}
+                    <h3 className="mt-6 line-clamp-2 text-base font-semibold tracking-[-0.025em]">
+                      {assignment?.title || "Untitled Assignment"}
+                    </h3>
+
+                    {/* DESCRIPTION */}
+                    <p className="mt-2 line-clamp-3 text-[10px] leading-5 text-black/40 group-hover:text-white/50">
+                      {assignment?.description ||
+                        "No description provided for this assignment."}
+                    </p>
+
+                    {/* SUBJECT */}
+                    <div className="mt-5 flex items-center gap-2">
+                      <BookOpen
+                        size={13}
+                        className="shrink-0 text-black/35 group-hover:text-white/40"
                       />
-                    );
-                  })}
-                </div>
-              )}
+
+                      <span className="truncate text-[9px] font-medium text-black/55 group-hover:text-white/60">
+                        {getSubjectName(assignment)}
+                      </span>
+                    </div>
+
+                    {/* DETAILS */}
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="rounded-[13px] border border-black/[0.06] bg-black/[0.025] p-3 group-hover:border-white/10 group-hover:bg-white/[0.06]">
+                        <p className="text-[8px] uppercase tracking-[0.14em] text-black/30 group-hover:text-white/35">
+                          Due date
+                        </p>
+
+                        <p className="mt-1 text-[10px] font-semibold">
+                          {formatDate(assignment?.dueDate)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-[13px] border border-black/[0.06] bg-black/[0.025] p-3 group-hover:border-white/10 group-hover:bg-white/[0.06]">
+                        <p className="text-[8px] uppercase tracking-[0.14em] text-black/30 group-hover:text-white/35">
+                          Marks
+                        </p>
+
+                        <p className="mt-1 text-[10px] font-semibold">
+                          {assignment?.totalMarks ?? "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* FOOTER */}
+                    <div className="mt-auto pt-5">
+                      <div className="flex items-center justify-between border-t border-black/[0.06] pt-4 group-hover:border-white/10">
+                        <div className="min-w-0">
+                          <p className="text-[8px] uppercase tracking-[0.14em] text-black/30 group-hover:text-white/35">
+                            Instructor
+                          </p>
+
+                          <p className="mt-1 truncate text-[9px] font-medium text-black/60 group-hover:text-white/65">
+                            {getTeacherName(assignment)}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-white/60 text-black/50 transition-all group-hover:border-white/15 group-hover:bg-white/10 group-hover:text-white"
+                          title="View assignment"
+                        >
+                          <ArrowUpRight size={14} strokeWidth={1.7} />
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
-          </section>
-
-          {/* Footer */}
-          <footer className="py-8 text-center">
-            <p className="text-xs text-slate-400">
-              © {new Date().getFullYear()} Texas College · Student Portal
-            </p>
-          </footer>
-        </main>
-      </div>
-    </div>
-  );
-};
-
-const SummaryCard = ({ icon: Icon, label, value, description, iconClass }) => {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-            {label}
-          </p>
-
-          <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
-
-          <p className="mt-1 text-xs text-slate-500">{description}</p>
+          )}
         </div>
-
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconClass}`}
-        >
-          <Icon size={19} />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AssignmentCard = ({ assignment, status, formatDate, onClick }) => {
-  const statusStyles = {
-    Upcoming: "bg-blue-50 text-blue-800 border-blue-100",
-    "Due Soon": "bg-amber-50 text-amber-700 border-amber-100",
-    "Due Today": "bg-orange-50 text-orange-700 border-orange-100",
-    Overdue: "bg-red-50 text-red-700 border-red-100",
-    "No deadline": "bg-slate-100 text-slate-600 border-slate-200",
-  };
-
-  const StatusIcon =
-    status === "Overdue"
-      ? AlertCircle
-      : status === "Due Today"
-        ? Clock3
-        : status === "Due Soon"
-          ? Clock3
-          : CheckCircle2;
-
-  return (
-    <div className="group rounded-xl border border-slate-200 p-5 transition hover:border-blue-200 hover:shadow-sm">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        {/* Main */}
-        <div className="flex min-w-0 gap-4">
-          <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-800 sm:flex">
-            <FileCheck2 size={20} />
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-base font-semibold text-slate-900">
-                {assignment.title}
-              </h4>
-
-              <span
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                  statusStyles[status]
-                }`}
-              >
-                <StatusIcon size={12} />
-                {status}
-              </span>
-            </div>
-
-            {assignment.subject && (
-              <p className="mt-1.5 text-xs font-medium text-blue-800">
-                {assignment.subject.name}
-                {assignment.subject.code && ` · ${assignment.subject.code}`}
-              </p>
-            )}
-
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
-              {assignment.description || "No description provided."}
-            </p>
-
-            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <CalendarDays size={14} />
-                Due: {formatDate(assignment.dueDate)}
-              </span>
-
-              <span className="flex items-center gap-1.5">
-                <GraduationCap size={14} />
-                Marks: {assignment.totalMarks ?? "—"}
-              </span>
-
-              {assignment.teacher && (
-                <span className="flex items-center gap-1.5">
-                  <User size={14} />
-                  {assignment.teacher.name}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Action */}
-        <div className="shrink-0">
-          <button
-            onClick={onClick}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-900 lg:w-auto"
-          >
-            View Assignment
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const EmptyState = () => {
-  return (
-    <div className="flex min-h-[300px] flex-col items-center justify-center text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-        <FileText size={25} />
-      </div>
-
-      <h3 className="text-sm font-semibold text-slate-900">
-        No assignments found
-      </h3>
-
-      <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
-        There are currently no published assignments available for your course
-        and semester.
-      </p>
-    </div>
+      )}
+    </section>
   );
 };
 

@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, Menu, User, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Bell, ChevronDown, Menu, LogOut, User, Settings } from "lucide-react";
 
-const StudentNavbar = ({ sidebarOpen, setSidebarOpen }) => {
+const StudentNavbar = ({ setSidebarOpen }) => {
   const navigate = useNavigate();
+  const dropdownRef = useRef(null);
 
   const [user, setUser] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -15,246 +16,224 @@ const StudentNavbar = ({ sidebarOpen, setSidebarOpen }) => {
       try {
         setUser(JSON.parse(storedUser));
       } catch (error) {
-        console.error("Failed to load user:", error);
+        console.error("Invalid user data:", error);
       }
     }
   }, []);
 
-  const logout = () => {
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-
-    setProfileOpen(false);
 
     navigate("/login");
   };
 
-  const goTo = (path) => {
-    setProfileOpen(false);
-    navigate(path);
-  };
+  const userName = user?.name || "Student";
 
-  const studentName = user?.name || "Student";
-  const studentEmail = user?.email || "Student Account";
-  const initial = studentName.charAt(0).toUpperCase();
+  const initials = userName
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 h-[68px] border-b border-slate-200 bg-white">
-      <div className="flex h-full items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* =====================================================
-            LEFT — MOBILE MENU + COLLEGE BRAND
-        ===================================================== */}
-
-        <div className="flex items-center gap-3">
-          {/* Mobile Sidebar Toggle */}
-
-          <button
-            type="button"
-            onClick={() => setSidebarOpen?.(!sidebarOpen)}
-            className="flex h-9 w-9 items-center justify-center text-slate-500 transition hover:bg-slate-50 hover:text-[#123b63] lg:hidden"
-            aria-label="Toggle sidebar"
-          >
-            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-
-          {/* College Brand */}
-
-          <button
-            type="button"
-            onClick={() => goTo("/student/dashboard")}
-            className="flex items-center gap-3"
-          >
-            {/* TC Logo */}
-
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#123b63] text-xs font-bold tracking-wide text-white">
-              TC
-            </div>
-
-            {/* College Name */}
-
-            <div className="hidden text-left sm:block">
-              <p className="text-[15px] font-semibold leading-none tracking-[-0.01em] text-slate-800">
-                Texas College
-              </p>
-
-              <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
-                Student Portal
-              </p>
-            </div>
-          </button>
-        </div>
-
-        {/* =====================================================
-            CENTER — GLOBAL COLLEGE NAVIGATION
-        ===================================================== */}
-
-        <nav className="absolute left-1/2 hidden h-full -translate-x-1/2 items-center lg:flex">
-          {/* Home */}
-
-          <button
-            type="button"
-            onClick={() => goTo("/student/dashboard")}
-            className="flex h-full items-center border-b-2 border-transparent px-5 text-[13px] font-medium text-slate-600 transition hover:border-[#123b63] hover:text-[#123b63]"
-          >
-            Home
-          </button>
-
-          {/* Academics */}
-
-          <button
-            type="button"
-            onClick={() => goTo("/student/subjects")}
-            className="flex h-full items-center border-b-2 border-transparent px-5 text-[13px] font-medium text-slate-600 transition hover:border-[#123b63] hover:text-[#123b63]"
-          >
-            Academics
-          </button>
-
-          {/* Campus */}
-
-          <button
-            type="button"
-            className="flex h-full items-center border-b-2 border-transparent px-5 text-[13px] font-medium text-slate-600 transition hover:border-[#123b63] hover:text-[#123b63]"
-          >
-            Campus
-          </button>
-
-          {/* Support */}
-
-          <button
-            type="button"
-            className="flex h-full items-center border-b-2 border-transparent px-5 text-[13px] font-medium text-slate-600 transition hover:border-[#123b63] hover:text-[#123b63]"
-          >
-            Support
-          </button>
-        </nav>
-
-        {/* =====================================================
-            RIGHT — NOTIFICATION + PROFILE
-        ===================================================== */}
-
-        <div className="flex items-center gap-2 sm:gap-4">
-          {/* Notification */}
-
-          <button
-            type="button"
-            className="relative flex h-9 w-9 items-center justify-center text-slate-500 transition hover:bg-slate-50 hover:text-[#123b63]"
-            title="Notifications"
-          >
-            <Bell size={19} />
-
-            {/* Notification Indicator */}
-
-            <span className="absolute right-[7px] top-[7px] h-1.5 w-1.5 rounded-full bg-red-500" />
-          </button>
-
-          {/* Divider */}
-
-          <div className="hidden h-7 w-px bg-slate-200 sm:block" />
-
-          {/* =================================================
-              PROFILE
-          ================================================= */}
-
-          <div className="relative">
+    <header className="fixed left-0 right-0 top-0 z-50 px-3 pt-3 sm:px-5">
+      <div className="mx-auto max-w-[1700px]">
+        {/* NAVBAR */}
+        <div className="glass-light group flex h-[64px] items-center justify-between rounded-[22px] px-3 sm:px-5">
+          {/* LEFT */}
+          <div className="flex items-center gap-3">
+            {/* Mobile Menu */}
             <button
               type="button"
-              onClick={() => setProfileOpen(!profileOpen)}
-              className="flex items-center gap-2 rounded-md px-1.5 py-1.5 transition hover:bg-slate-50"
+              onClick={() => setSidebarOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.025] text-black/50 hover:bg-black hover:text-white lg:hidden"
+              aria-label="Open menu"
             >
-              {/* Avatar */}
-
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-slate-100 text-sm font-semibold text-[#123b63]">
-                {initial}
-              </div>
-
-              {/* Student Name */}
-
-              <div className="hidden text-left md:block">
-                <p className="max-w-[135px] truncate text-[13px] font-semibold text-slate-700">
-                  {studentName}
-                </p>
-
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                  Student
-                </p>
-              </div>
-
-              {/* Dropdown Arrow */}
-
-              <ChevronDown
-                size={15}
-                className={`text-slate-400 transition-transform duration-200 ${
-                  profileOpen ? "rotate-180" : ""
-                }`}
-              />
+              <Menu size={18} />
             </button>
 
-            {/* =================================================
-                PROFILE DROPDOWN
-            ================================================= */}
+            {/* LOGO */}
+            <Link
+              to="/student/dashboard"
+              className="group/logo flex items-center gap-3"
+            >
+              {/* Temporary Logo */}
+              <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[13px] border border-black/10 bg-black text-white shadow-sm">
+                <span className="relative text-[10px] font-bold tracking-[0.12em]">
+                  TC
+                </span>
+              </div>
 
-            {profileOpen && (
-              <>
-                {/* Click outside */}
+              <div className="hidden sm:block">
+                <p className="text-[13px] font-semibold tracking-[-0.02em] text-black">
+                  TEXAS COLLEGE
+                </p>
 
-                <button
-                  type="button"
-                  aria-label="Close profile menu"
-                  onClick={() => setProfileOpen(false)}
-                  className="fixed inset-0 z-[-1] h-screen w-screen cursor-default"
+                <p className="mt-0.5 text-[8px] font-medium uppercase tracking-[0.25em] text-black/35">
+                  Student Portal
+                </p>
+              </div>
+            </Link>
+          </div>
+
+          {/* CENTER NAV */}
+          <nav className="hidden items-center gap-1 lg:flex">
+            <Link
+              to="/student/dashboard"
+              className="rounded-full px-4 py-2 text-[11px] font-medium text-black/80 hover:bg-black hover:text-white"
+            >
+              Overview
+            </Link>
+
+            <Link
+              to="/student/subjects"
+              className="rounded-full px-4 py-2 text-[11px] font-medium text-black/40 hover:bg-black hover:text-white"
+            >
+              Academics
+            </Link>
+
+            <Link
+              to="/student/timetable"
+              className="rounded-full px-4 py-2 text-[11px] font-medium text-black/40 hover:bg-black hover:text-white"
+            >
+              Schedule
+            </Link>
+
+            <Link
+              to="/student/notices"
+              className="rounded-full px-4 py-2 text-[11px] font-medium text-black/40 hover:bg-black hover:text-white"
+            >
+              Campus
+            </Link>
+          </nav>
+
+          {/* RIGHT */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Notification */}
+            <button
+              type="button"
+              onClick={() => navigate("/student/notices")}
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.025] text-black/45 hover:bg-black hover:text-white"
+              aria-label="Notifications"
+            >
+              <Bell size={17} />
+
+              <span className="absolute right-[9px] top-[8px] h-1.5 w-1.5 rounded-full bg-black" />
+            </button>
+
+            {/* Profile */}
+            <div ref={dropdownRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setProfileOpen((prev) => !prev)}
+                className="flex items-center gap-2 rounded-full border border-black/[0.08] bg-black/[0.025] py-1 pl-1 pr-2 hover:bg-black hover:text-white sm:gap-3 sm:pr-3"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-[10px] font-bold text-white">
+                  {initials}
+                </div>
+
+                <div className="hidden text-left md:block">
+                  <p className="max-w-[120px] truncate text-xs font-medium text-black/80 group-hover:text-white">
+                    {userName}
+                  </p>
+
+                  <p className="text-[8px] uppercase tracking-[0.16em] text-black/30">
+                    Student
+                  </p>
+                </div>
+
+                <ChevronDown
+                  size={14}
+                  className={`hidden text-black/30 transition-transform md:block ${
+                    profileOpen ? "rotate-180" : ""
+                  }`}
                 />
+              </button>
 
-                {/* Dropdown */}
-
-                <div className="absolute right-0 top-[50px] z-50 w-[255px] overflow-hidden border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.10)]">
-                  {/* User Information */}
-
-                  <div className="border-b border-slate-100 px-4 py-4">
+              {/* PROFILE DROPDOWN */}
+              {profileOpen && (
+                <div className="glass-light absolute right-0 top-[52px] w-[245px] overflow-hidden rounded-[22px]">
+                  {/* User */}
+                  <div className="border-b border-black/[0.08] px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-slate-100 text-sm font-semibold text-[#123b63]">
-                        {initial}
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-xs font-bold text-white">
+                        {initials}
                       </div>
 
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-800">
-                          {studentName}
+                        <p className="truncate text-sm font-medium text-black/90">
+                          {userName}
                         </p>
 
-                        <p className="mt-0.5 truncate text-xs text-slate-500">
-                          {studentEmail}
+                        <p className="truncate text-xs text-black/35">
+                          {user?.email || "Student account"}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* My Profile */}
+                  {/* Actions */}
+                  <div className="p-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        navigate("/student/profile");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs text-black/55 hover:bg-black hover:text-white"
+                    >
+                      <User size={15} />
+                      My Profile
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => goTo("/student/profile")}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-[13px] text-slate-600 transition hover:bg-slate-50 hover:text-[#123b63]"
-                  >
-                    <User size={16} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        navigate("/student/profile");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs text-black/55 hover:bg-black hover:text-white"
+                    >
+                      <Settings size={15} />
+                      Account Settings
+                    </button>
+                  </div>
 
-                    <span>My Profile</span>
-                  </button>
-
-                  {/* Sign Out */}
-
-                  <button
-                    type="button"
-                    onClick={logout}
-                    className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-3 text-[13px] text-slate-600 transition hover:bg-red-50 hover:text-red-600"
-                  >
-                    <LogOut size={16} />
-
-                    <span>Sign Out</span>
-                  </button>
+                  {/* Logout */}
+                  <div className="border-t border-black/[0.08] p-2">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs text-black/50 hover:bg-black hover:text-white"
+                    >
+                      <LogOut size={15} />
+                      Sign Out
+                    </button>
+                  </div>
                 </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </div>
+
+        {/* GLASS REFLECTION */}
+        <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
       </div>
     </header>
   );

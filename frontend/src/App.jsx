@@ -1,31 +1,43 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+
 import StudentDashboard from "./pages/StudentDashboard";
-import TeacherDashboard from "./pages/TeacherDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
-import StudentAssignments from "./pages/StudentAssignments";
 import StudentSubjects from "./pages/StudentSubjects";
-import StudentSubjectDetails from "./pages/StudentSubjectDetails";
+import StudentAttendance from "./pages/StudentAttendance";
+import StudentAssignments from "./pages/StudentAssignments";
+import StudentResults from "./pages/StudentResults";
+import StudentTimetable from "./pages/StudentTimetable";
+
+import StudentLayout from "./layouts/StudentLayout";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* AUTH */}
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/student/dashboard" element={<StudentDashboard />} />
-        <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/student/assignments" element={<StudentAssignments />} />
-        <Route path="/student/subjects" element={<StudentSubjects />} />
-        
-        <Route
-          path="/student/subjects/:id"
-          element={<StudentSubjectDetails />}
-        />
+
+        {/* STUDENT PORTAL */}
+        <Route path="/student" element={<StudentLayout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+
+          <Route path="dashboard" element={<StudentDashboard />} />
+
+          <Route path="subjects" element={<StudentSubjects />} />
+
+          <Route path="attendance" element={<StudentAttendance />} />
+
+          <Route path="assignments" element={<StudentAssignments />} />
+          <Route path="results" element={<StudentResults />} />
+          <Route path="timetable" element={<StudentTimetable />} />
+        </Route>
+
+        {/* FALLBACK */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
