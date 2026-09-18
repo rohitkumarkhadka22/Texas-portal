@@ -1,5 +1,7 @@
 const Student = require("../models/Student");
 const User = require("../models/User");
+const fs = require("fs");
+const path = require("path");
 
 const createStudentProfile = async (req, res) => {
   try {
@@ -145,32 +147,31 @@ const getMyProfile = async (req, res) => {
 
 const updateMyProfile = async (req, res) => {
   try {
-    const allowedFields = [
-      "course",
-      "semester",
-      "section",
-      "dateOfBirth",
-      "gender",
-      "address",
-      "guardian",
-    ];
+    const {
+      name,
+      phone,
+      course,
+      semester,
+      section,
+      dateOfBirth,
+      gender,
+      address,
+      guardian,
+    } = req.body;
 
-    const updates = {};
+    // Find current user
+    const user = await User.findById(req.user.id);
 
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
-      }
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // Find student profile
+    const student = await Student.findOne({
+      user: req.user.id,
     });
-
-    const student = await Student.findOneAndUpdate(
-      { user: req.user.id },
-      { $set: updates },
-      {
-        new: true,
-        runValidators: true,
-      },
-    ).populate("user", "name email phone profileImage role");
 
     if (!student) {
       return res.status(404).json({
@@ -178,15 +179,106 @@ const updateMyProfile = async (req, res) => {
       });
     }
 
+    // -----------------------------
+    // UPDATE USER INFORMATION
+    // -----------------------------
+
+    if (name !== undefined) {
+      user.name = name;
+    }
+
+    if (phone !== undefined) {
+      user.phone = phone;
+    }
+
+    await user.save();
+
+    // -----------------------------
+    // UPDATE STUDENT INFORMATION
+    // -----------------------------
+
+    if (course !== undefined) {
+      student.course = course;
+    }
+
+    if (semester !== undefined) {
+      const semesterNumber = Number(semester);
+
+      if (
+        !Number.isInteger(semesterNumber) ||
+        semesterNumber < 1 ||
+        semesterNumber > 8
+      ) {
+        return res.status(400).json({
+          message: "Semester must be a whole number between 1 and 8",
+        });
+      }
+
+      student.semester = semesterNumber;
+    }
+
+    if (section !== undefined) {
+      student.section = section;
+    }
+
+    if (dateOfBirth !== undefined) {
+      student.dateOfBirth = dateOfBirth;
+    }
+
+    if (gender !== undefined) {
+      const allowedGenders = ["male", "female", "other"];
+
+      if (!allowedGenders.includes(gender)) {
+        return res.status(400).json({
+          message: "Gender must be male, female or other",
+        });
+      }
+
+      student.gender = gender;
+    }
+
+    if (address !== undefined) {
+      student.address = address;
+    }
+
+    if (guardian !== undefined) {
+      student.guardian = guardian;
+    }
+
+    await student.save();
+
+    // -----------------------------
+    // GET UPDATED PROFILE
+    // -----------------------------
+
+    const updatedStudent = await Student.findOne({
+      user: req.user.id,
+    }).populate("user", "name email phone profileImage role");
+
     res.status(200).json({
       message: "Student profile updated successfully",
-      student,
+      student: updatedStudent,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Update student profile error:", error);
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Invalid student data",
+        error: error.message,
+      });
+    }
+
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid data provided",
+        error: error.message,
+      });
+    }
 
     res.status(500).json({
       message: "Server error",
+      error: error.message,
     });
   }
 };
@@ -252,6 +344,90 @@ const getAllStudents = async (req, res) => {
     res.status(500).json({
       message: "Server error",
       error: error.message,
+    });
+  }
+};
+
+const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Please select an image",
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // Delete old profile image
+    if (
+      user.profileImage &&
+      user.profileImage.startsWith("/uploads/profile-images/")
+    ) {
+      const oldImagePath = path.join(__dirname, "..", user.profileImage);
+
+      if (fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+      }
+    }
+
+    // Save new image path
+    user.profileImage = `/uploads/profile-images/${req.file.filename}`;
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Profile image updated successfully",
+      profileImage: user.profileImage,
+    });
+  } catch (error) {
+    console.error("Upload profile image error:", error);
+
+    res.status(500).json({
+      message: "Failed to upload profile image",
+    });
+  }
+};
+
+const removeProfileImage = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    if (
+      user.profileImage &&
+      user.profileImage.startsWith("/uploads/profile-images/")
+    ) {
+      const imagePath = path.join(__dirname, "..", user.profileImage);
+
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    }
+
+    user.profileImage = "";
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Profile image removed successfully",
+      profileImage: "",
+    });
+  } catch (error) {
+    console.error("Remove profile image error:", error);
+
+    res.status(500).json({
+      message: "Failed to remove profile image",
     });
   }
 };
@@ -346,4 +522,6 @@ module.exports = {
   updateMyProfile,
   getAllStudents,
   createStudentByAdmin,
+  uploadProfileImage,
+  removeProfileImage,
 };

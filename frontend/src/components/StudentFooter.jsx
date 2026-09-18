@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import collegeLogo from "../assets/images/college-logo.png";
 
 const StudentFooter = () => {
   return (
@@ -7,17 +8,27 @@ const StudentFooter = () => {
         {/* BRAND */}
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border border-black/[0.08] bg-white shadow-sm">
-              <span className="text-sm font-bold tracking-[-0.04em]">TC</span>
-            </div>
+            {/* COLLEGE LOGO */}
+            <Link
+              to="/student/dashboard"
+              className="flex h-11 w-11 items-center justify-center transition-transform duration-300 hover:scale-[1.04]"
+              aria-label="Texas College"
+            >
+              <img
+                src={collegeLogo}
+                alt="Texas College"
+                className="h-full w-full object-contain"
+              />
+            </Link>
 
+            {/* BRAND TEXT */}
             <div>
               <p className="text-sm font-semibold tracking-[-0.02em] text-black">
-                Texas College
+                Texas College Of
               </p>
 
-              <p className="mt-0.5 text-[8px] font-medium uppercase tracking-[0.2em] text-black/30">
-                Student Portal
+              <p className="text-sm font-semibold tracking-[-0.02em] text-black">
+              Management & IT
               </p>
             </div>
           </div>

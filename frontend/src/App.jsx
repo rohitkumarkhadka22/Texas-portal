@@ -9,6 +9,7 @@ import StudentAttendance from "./pages/StudentAttendance";
 import StudentAssignments from "./pages/StudentAssignments";
 import StudentResults from "./pages/StudentResults";
 import StudentTimetable from "./pages/StudentTimetable";
+import StudentProfile from "./pages/StudentProfile";
 
 import StudentLayout from "./layouts/StudentLayout";
 
@@ -34,6 +35,7 @@ function App() {
           <Route path="assignments" element={<StudentAssignments />} />
           <Route path="results" element={<StudentResults />} />
           <Route path="timetable" element={<StudentTimetable />} />
+          <Route path="profile" element={<StudentProfile />} />
         </Route>
 
         {/* FALLBACK */}

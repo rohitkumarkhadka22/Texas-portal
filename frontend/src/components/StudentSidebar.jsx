@@ -26,25 +26,27 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
     navigate("/login");
   };
 
-  const navItemClass = ({ isActive }) =>
-    `
-    group flex items-center justify-between rounded-[15px]
-    border px-3.5 py-3
+  const navItemClass = () => `
+    group
+    flex items-center justify-between
+    rounded-[15px]
+    border border-transparent
+    px-3.5 py-3
     text-[11px] font-medium
+    text-black/45
     transition-all duration-200
-    ${
-      isActive
-        ? "border-black bg-black text-white shadow-[0_10px_30px_rgba(0,0,0,0.12)]"
-        : "border-transparent text-black/45 hover:border-black hover:bg-black hover:text-white"
-    }
-    `;
+    cursor-pointer
+    hover:border-black
+    hover:bg-black
+    hover:text-white
+  `;
 
-  const iconClass = ({ isActive }) =>
-    `
-    transition-transform duration-200
+  const iconClass = () => `
+    text-black/35
+    transition-all duration-200
     group-hover:scale-105
-    ${isActive ? "text-white" : "text-black/35 group-hover:text-white"}
-    `;
+    group-hover:text-white
+  `;
 
   const closeMobile = () => {
     setSidebarOpen(false);
@@ -57,7 +59,7 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <button
           type="button"
           onClick={closeMobile}
-          className="fixed inset-0 z-[55] bg-black/20 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-[55] cursor-pointer bg-black/20 backdrop-blur-sm lg:hidden"
           aria-label="Close sidebar"
         />
       )}
@@ -93,7 +95,7 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
             <button
               type="button"
               onClick={closeMobile}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.025] text-black/45 hover:bg-black hover:text-white"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.025] text-black/45 transition-all duration-200 hover:bg-black hover:text-white"
             >
               <X size={16} />
             </button>
@@ -124,24 +126,17 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <>
                       <span className="flex items-center gap-3">
-                        <LayoutDashboard
-                          size={16}
-                          className={iconClass({ isActive })}
-                        />
+                        <LayoutDashboard size={16} className={iconClass()} />
 
                         <span>Dashboard</span>
                       </span>
 
                       <ChevronRight
                         size={13}
-                        className={`transition-transform ${
-                          isActive
-                            ? "translate-x-0 text-white"
-                            : "text-black/15 group-hover:translate-x-0.5 group-hover:text-white"
-                        }`}
+                        className="text-black/15 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-white"
                       />
                     </>
                   )}
@@ -161,9 +156,9 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <span className="flex items-center gap-3">
-                      <BookOpen size={16} className={iconClass({ isActive })} />
+                      <BookOpen size={16} className={iconClass()} />
                       <span>Subjects</span>
                     </span>
                   )}
@@ -174,12 +169,9 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <span className="flex items-center gap-3">
-                      <ClipboardCheck
-                        size={16}
-                        className={iconClass({ isActive })}
-                      />
+                      <ClipboardCheck size={16} className={iconClass()} />
                       <span>Attendance</span>
                     </span>
                   )}
@@ -190,9 +182,9 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <span className="flex items-center gap-3">
-                      <FileText size={16} className={iconClass({ isActive })} />
+                      <FileText size={16} className={iconClass()} />
                       <span>Assignments</span>
                     </span>
                   )}
@@ -203,12 +195,9 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <span className="flex items-center gap-3">
-                      <GraduationCap
-                        size={16}
-                        className={iconClass({ isActive })}
-                      />
+                      <GraduationCap size={16} className={iconClass()} />
                       <span>Results</span>
                     </span>
                   )}
@@ -228,9 +217,9 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <span className="flex items-center gap-3">
-                      <Clock3 size={16} className={iconClass({ isActive })} />
+                      <Clock3 size={16} className={iconClass()} />
                       <span>Timetable</span>
                     </span>
                   )}
@@ -241,12 +230,9 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <span className="flex items-center gap-3">
-                      <CalendarDays
-                        size={16}
-                        className={iconClass({ isActive })}
-                      />
+                      <CalendarDays size={16} className={iconClass()} />
                       <span>Examinations</span>
                     </span>
                   )}
@@ -257,12 +243,9 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <span className="flex items-center gap-3">
-                      <CreditCard
-                        size={16}
-                        className={iconClass({ isActive })}
-                      />
+                      <CreditCard size={16} className={iconClass()} />
                       <span>Fees & Payments</span>
                     </span>
                   )}
@@ -273,9 +256,9 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <span className="flex items-center gap-3">
-                      <Bell size={16} className={iconClass({ isActive })} />
+                      <Bell size={16} className={iconClass()} />
                       <span>Notices</span>
                     </span>
                   )}
@@ -295,9 +278,9 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={closeMobile}
                   className={navItemClass}
                 >
-                  {({ isActive }) => (
+                  {() => (
                     <span className="flex items-center gap-3">
-                      <User size={16} className={iconClass({ isActive })} />
+                      <User size={16} className={iconClass()} />
                       <span>My Profile</span>
                     </span>
                   )}
@@ -311,11 +294,30 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
             <button
               type="button"
               onClick={handleLogout}
-              className="group flex w-full items-center gap-3 rounded-[15px] border border-transparent px-3.5 py-3 text-[11px] font-medium text-black/40 hover:border-black hover:bg-black hover:text-white"
+              className="
+                group
+                flex w-full
+                cursor-pointer
+                items-center gap-3
+                rounded-[15px]
+                border border-transparent
+                px-3.5 py-3
+                text-[11px] font-medium
+                text-black/40
+                transition-all duration-200
+                hover:border-black
+                hover:bg-black
+                hover:text-white
+              "
             >
               <LogOut
                 size={16}
-                className="text-black/30 transition-transform group-hover:translate-x-0.5 group-hover:text-white"
+                className="
+                  text-black/30
+                  transition-all duration-200
+                  group-hover:translate-x-0.5
+                  group-hover:text-white
+                "
               />
 
               <span>Sign Out</span>

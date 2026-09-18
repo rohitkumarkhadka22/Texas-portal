@@ -1,6 +1,6 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
-
+const crypto = require("crypto");
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -26,6 +26,7 @@ const registerUser = async (req, res) => {
     }
 
     const existingUser = await User.findOne({ email });
+
     if (existingUser) {
       return res.status(400).json({
         message: "User with this email already exists",
@@ -42,8 +43,9 @@ const registerUser = async (req, res) => {
     });
 
     const token = generateToken(user);
+
     res.status(201).json({
-      message: "User registered sucessfully",
+      message: "User registered successfully",
       token,
       user: {
         id: user._id,
@@ -51,10 +53,12 @@ const registerUser = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
+        profileImage: user.profileImage,
       },
     });
   } catch (error) {
     console.error(error);
+
     res.status(500).json({
       message: "Server error",
     });
@@ -72,6 +76,7 @@ const loginUser = async (req, res) => {
     }
 
     const user = await User.findOne({ email });
+
     if (!user) {
       return res.status(401).json({
         message: "Invalid email or password",
@@ -80,17 +85,20 @@ const loginUser = async (req, res) => {
 
     if (!user.isActive) {
       return res.status(403).json({
-        message: "Your accont has been deactivated",
+        message: "Your account has been deactivated",
       });
     }
 
     const isPasswordCorrect = await user.comparePassword(password);
+
     if (!isPasswordCorrect) {
       return res.status(401).json({
         message: "Invalid email or password",
       });
     }
+
     const token = generateToken(user);
+
     res.status(200).json({
       message: "Login successful",
       token,
@@ -100,10 +108,12 @@ const loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
+        profileImage: user.profileImage,
       },
     });
   } catch (error) {
     console.error(error);
+
     res.status(500).json({
       message: "Server error",
     });
@@ -159,8 +169,6 @@ const changePassword = async (req, res) => {
   }
 };
 
-const crypto = require("crypto");
-
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -188,7 +196,9 @@ const forgotPassword = async (req, res) => {
 
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
 
-    await user.save({ validateBeforeSave: false });
+    await user.save({
+      validateBeforeSave: false,
+    });
 
     res.status(200).json({
       message: "Password reset token generated successfully",
@@ -231,7 +241,9 @@ const resetPassword = async (req, res) => {
 
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
-      resetPasswordExpire: { $gt: Date.now() },
+      resetPasswordExpire: {
+        $gt: Date.now(),
+      },
     });
 
     if (!user) {
@@ -258,6 +270,7 @@ const resetPassword = async (req, res) => {
     });
   }
 };
+
 module.exports = {
   registerUser,
   loginUser,

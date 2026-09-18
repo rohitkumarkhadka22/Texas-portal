@@ -25,9 +25,26 @@ const Login = () => {
 
       const { token, user } = response.data;
 
+      // Save authentication token
       localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
 
+      // Save complete logged-in user including profile image
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          phone: user.phone || "",
+          profileImage: user.profileImage || "",
+        }),
+      );
+
+      // Tell navbar/dashboard that user data has changed
+      window.dispatchEvent(new Event("profileUpdated"));
+
+      // Redirect according to role
       if (user.role === "student") {
         navigate("/student/dashboard");
       } else if (user.role === "teacher") {
@@ -36,6 +53,8 @@ const Login = () => {
         navigate("/admin/dashboard");
       }
     } catch (error) {
+      console.error("Login error:", error);
+
       setMessage(error.response?.data?.message || "Invalid email or password.");
     } finally {
       setLoading(false);
@@ -142,7 +161,7 @@ const Login = () => {
 
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPassword((prev) => !prev)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-900"
                   >
                     {showPassword ? "Hide" : "Show"}
@@ -189,7 +208,7 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Footer note */}
+          {/* Footer */}
           <p className="mt-6 text-center text-xs text-gray-500">
             Texas College Portal
           </p>

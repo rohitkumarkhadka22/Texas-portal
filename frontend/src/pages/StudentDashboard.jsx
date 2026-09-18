@@ -14,17 +14,48 @@ import { useEffect, useState } from "react";
 const StudentDashboard = () => {
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
+  /* =========================================
+     LOAD USER
+  ========================================= */
 
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error("Failed to parse logged-in user:", error);
+  useEffect(() => {
+    const loadUser = () => {
+      const storedUser = localStorage.getItem("user");
+
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (error) {
+          console.error("Failed to parse logged-in user:", error);
+        }
       }
-    }
+    };
+
+    loadUser();
+
+    // Profile image/name update भएपछि dashboard refresh
+    window.addEventListener("profileUpdated", loadUser);
+
+    return () => {
+      window.removeEventListener("profileUpdated", loadUser);
+    };
   }, []);
+
+  /* =========================================
+     IMAGE URL
+  ========================================= */
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) {
+      return "";
+    }
+
+    if (imagePath.startsWith("http")) {
+      return imagePath;
+    }
+
+    return `http://localhost:5001${imagePath}`;
+  };
 
   const userName = user?.name || "Student";
 
@@ -293,7 +324,6 @@ const StudentDashboard = () => {
 
                 <div className="dashboard-muted flex items-center gap-2 text-[10px]">
                   <MapPin size={13} />
-
                   <span>{item.room}</span>
                 </div>
 
@@ -319,12 +349,28 @@ const StudentDashboard = () => {
 
           <div className="mt-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-[21px] bg-black text-lg font-semibold text-white">
-                {initials || "ST"}
-              </div>
+              {/* PROFILE IMAGE */}
+              {user?.profileImage ? (
+                <img
+                  src={getImageUrl(user.profileImage)}
+                  alt={userName}
+                  className="
+                    h-16 w-16
+                    shrink-0
+                    rounded-[21px]
+                    border border-black/[0.08]
+                    object-cover
+                    shadow-[0_10px_30px_rgba(0,0,0,0.08)]
+                  "
+                />
+              ) : (
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[21px] bg-black text-lg font-semibold text-white">
+                  {initials || "ST"}
+                </div>
+              )}
 
-              <div>
-                <p className="text-base font-semibold tracking-[-0.03em]">
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold tracking-[-0.03em]">
                   {userName}
                 </p>
 
@@ -421,7 +467,6 @@ const StudentDashboard = () => {
               <div className="mt-6 flex items-center justify-between">
                 <div className="dashboard-muted flex items-center gap-2 text-[10px]">
                   <Clock3 size={13} />
-
                   <span>Due {assignment.due}</span>
                 </div>
 
