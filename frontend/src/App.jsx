@@ -10,6 +10,8 @@ import StudentAssignments from "./pages/StudentAssignments";
 import StudentResults from "./pages/StudentResults";
 import StudentTimetable from "./pages/StudentTimetable";
 import StudentProfile from "./pages/StudentProfile";
+import StudentExaminations from "./pages/StudentExaminations";
+import StudentFees from "./pages/StudentFees";
 
 import StudentLayout from "./layouts/StudentLayout";
 
@@ -24,17 +26,16 @@ function App() {
 
         {/* STUDENT PORTAL */}
         <Route path="/student" element={<StudentLayout />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
 
           <Route path="dashboard" element={<StudentDashboard />} />
-
           <Route path="subjects" element={<StudentSubjects />} />
-
           <Route path="attendance" element={<StudentAttendance />} />
-
           <Route path="assignments" element={<StudentAssignments />} />
           <Route path="results" element={<StudentResults />} />
           <Route path="timetable" element={<StudentTimetable />} />
+          <Route path="examinations" element={<StudentExaminations />} />
+          <Route path="fees" element={<StudentFees />} />
           <Route path="profile" element={<StudentProfile />} />
         </Route>
 

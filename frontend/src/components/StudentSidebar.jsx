@@ -226,7 +226,7 @@ const StudentSidebar = ({ sidebarOpen, setSidebarOpen }) => {
                 </NavLink>
 
                 <NavLink
-                  to="/student/exams"
+                  to="/student/examinations"
                   onClick={closeMobile}
                   className={navItemClass}
                 >

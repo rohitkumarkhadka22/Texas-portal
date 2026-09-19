@@ -1,756 +1,879 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Award,
+  BarChart3,
   BookOpen,
-  CalendarDays,
+  CheckCircle2,
   ChevronRight,
+  Clock3,
+  FileText,
   GraduationCap,
-  Loader2,
   RefreshCw,
-  Trophy,
+  Search,
+  Sparkles,
+  Target,
+  TrendingUp,
+  XCircle,
 } from "lucide-react";
 
 import api from "../services/api";
 
 const StudentResults = () => {
   const [results, setResults] = useState([]);
-  const [activeType, setActiveType] = useState("final");
-  const [selectedSemester, setSelectedSemester] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchResults = async () => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [examFilter, setExamFilter] = useState("all");
+
+  const fetchResults = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
       setError("");
 
-      const token = localStorage.getItem("token");
+      const response = await api.get("/results/my-results");
 
-      const response = await api.get("/results/my-results", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const data = response.data || {};
 
-      const data = response.data;
-
-      const resultList = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.results)
-          ? data.results
-          : Array.isArray(data?.data)
-            ? data.data
-            : [];
-
-      setResults(resultList);
+      setResults(Array.isArray(data.results) ? data.results : []);
     } catch (err) {
+      console.error("Get student results error:", err);
+
       setError(
-        err.response?.data?.message ||
-          "Unable to load your results. Please try again.",
+        err.response?.data?.message || "Unable to load your results right now.",
       );
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchResults();
-  }, []);
-
-  /* =========================================
-     HELPERS
-  ========================================= */
-
-  const getResultType = (result) => {
-    const value = String(
-      result?.resultType ||
-        result?.type ||
-        result?.examType ||
-        result?.assessmentType ||
-        "",
-    ).toLowerCase();
-
-    if (value.includes("pre") || value.includes("board")) {
-      return "preboard";
-    }
-
-    return "final";
-  };
-
-  const getSemester = (result) => {
-    return (
-      result?.semester ??
-      result?.semesterNumber ??
-      result?.term ??
-      result?.academicSemester ??
-      null
-    );
-  };
-
-  const getSubjectName = (result) => {
-    if (typeof result?.subject === "string") {
-      return result.subject;
-    }
-
-    return (
-      result?.subject?.name || result?.subjectName || result?.name || "Subject"
-    );
-  };
-
-  const getSubjectCode = (result) => {
-    if (typeof result?.subject === "object") {
-      return result?.subject?.code || "";
-    }
-
-    return result?.subjectCode || "";
-  };
-
-  const getMarks = (result) => {
-    return (
-      result?.marks ??
-      result?.obtainedMarks ??
-      result?.score ??
-      result?.obtained ??
-      null
-    );
-  };
-
-  const getTotalMarks = (result) => {
-    return (
-      result?.totalMarks ?? result?.maximumMarks ?? result?.maxMarks ?? 100
-    );
-  };
+  }, [fetchResults]);
 
   const getPercentage = (result) => {
-    if (result?.percentage !== undefined && result?.percentage !== null) {
-      return Number(result.percentage);
-    }
+    const obtained = Number(result?.marksObtained) || 0;
+    const total = Number(result?.totalMarks) || 0;
 
-    const marks = Number(getMarks(result));
-    const total = Number(getTotalMarks(result));
+    if (!total) return 0;
 
-    if (!Number.isNaN(marks) && total > 0) {
-      return (marks / total) * 100;
-    }
-
-    return null;
+    return Math.round((obtained / total) * 100);
   };
 
-  const getGrade = (result) => {
-    if (result?.grade) {
-      return result.grade;
+  const getGradeValue = (grade) => {
+    const gradeMap = {
+      "A+": 4.0,
+      A: 3.7,
+      "B+": 3.3,
+      B: 3.0,
+      "C+": 2.7,
+      C: 2.3,
+      F: 0,
+    };
+
+    return gradeMap[grade] ?? 0;
+  };
+
+  const getGradeClass = (grade) => {
+    if (grade === "A+" || grade === "A") {
+      return "bg-black text-white border-black";
     }
 
-    const percentage = getPercentage(result);
-
-    if (percentage === null) return "—";
-
-    if (percentage >= 90) return "A+";
-    if (percentage >= 80) return "A";
-    if (percentage >= 70) return "B+";
-    if (percentage >= 60) return "B";
-    if (percentage >= 50) return "C+";
-    if (percentage >= 40) return "C";
-
-    return "F";
-  };
-
-  const getCredits = (result) => {
-    return (
-      result?.creditHours ??
-      result?.credits ??
-      result?.subject?.creditHours ??
-      "—"
-    );
-  };
-
-  const getDate = (result) => {
-    const date =
-      result?.examDate ||
-      result?.date ||
-      result?.publishedAt ||
-      result?.createdAt;
-
-    if (!date) return "—";
-
-    const parsed = new Date(date);
-
-    if (Number.isNaN(parsed.getTime())) {
-      return String(date);
+    if (grade === "B+" || grade === "B") {
+      return "bg-white text-black border-black/15";
     }
 
-    return parsed.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    if (grade === "C+" || grade === "C") {
+      return "bg-black/[0.05] text-black border-black/10";
+    }
+
+    return "bg-white text-black/45 border-black/10";
   };
 
-  /* =========================================
-     FILTERING
-  ========================================= */
+  const getPerformanceLabel = (percentage) => {
+    if (percentage >= 90) return "Exceptional";
+    if (percentage >= 80) return "Excellent";
+    if (percentage >= 70) return "Strong";
+    if (percentage >= 60) return "Good";
+    if (percentage >= 50) return "Developing";
+    if (percentage >= 40) return "Needs improvement";
 
-  const finalResults = useMemo(
-    () => results.filter((result) => getResultType(result) === "final"),
-    [results],
-  );
-
-  const preBoardResults = useMemo(
-    () => results.filter((result) => getResultType(result) === "preboard"),
-    [results],
-  );
-
-  const activeResults = activeType === "final" ? finalResults : preBoardResults;
-
-  const semesters = useMemo(() => {
-    const values = activeResults
-      .map(getSemester)
-      .filter((value) => value !== null && value !== undefined);
-
-    return [...new Set(values)].sort((a, b) => Number(a) - Number(b));
-  }, [activeResults]);
+    return "At risk";
+  };
 
   const filteredResults = useMemo(() => {
-    if (selectedSemester === "all") {
-      return activeResults;
+    const query = searchTerm.trim().toLowerCase();
+
+    return results.filter((result) => {
+      const subjectName = result?.subject?.name?.toLowerCase() || "";
+      const subjectCode = result?.subject?.code?.toLowerCase() || "";
+      const examType = result?.examType?.toLowerCase() || "";
+      const grade = result?.grade?.toLowerCase() || "";
+
+      const matchesSearch =
+        !query ||
+        subjectName.includes(query) ||
+        subjectCode.includes(query) ||
+        examType.includes(query) ||
+        grade.includes(query);
+
+      const matchesExam =
+        examFilter === "all" || result?.examType?.toLowerCase() === examFilter;
+
+      return matchesSearch && matchesExam;
+    });
+  }, [results, searchTerm, examFilter]);
+
+  const overallStats = useMemo(() => {
+    if (!results.length) {
+      return {
+        obtained: 0,
+        total: 0,
+        percentage: 0,
+        averageGradePoint: 0,
+        passed: 0,
+        failed: 0,
+      };
     }
 
-    return activeResults.filter(
-      (result) => String(getSemester(result)) === String(selectedSemester),
+    const obtained = results.reduce(
+      (sum, item) => sum + (Number(item?.marksObtained) || 0),
+      0,
     );
-  }, [activeResults, selectedSemester]);
 
-  /* =========================================
-     SUMMARY
-  ========================================= */
-
-  const averagePercentage = useMemo(() => {
-    if (!filteredResults.length) return null;
-
-    const percentages = filteredResults
-      .map(getPercentage)
-      .filter((value) => value !== null && !Number.isNaN(value));
-
-    if (!percentages.length) return null;
-
-    return (
-      percentages.reduce((sum, value) => sum + value, 0) / percentages.length
+    const total = results.reduce(
+      (sum, item) => sum + (Number(item?.totalMarks) || 0),
+      0,
     );
-  }, [filteredResults]);
 
-  const totalCredits = useMemo(() => {
-    return filteredResults.reduce((sum, result) => {
-      const credits = Number(getCredits(result));
+    const percentage = total ? Math.round((obtained / total) * 100) : 0;
 
-      return Number.isNaN(credits) ? sum : sum + credits;
-    }, 0);
-  }, [filteredResults]);
+    const gradePoints = results.map((item) => getGradeValue(item?.grade));
 
-  const passedSubjects = filteredResults.filter(
-    (result) => getGrade(result) !== "F",
-  ).length;
+    const averageGradePoint =
+      gradePoints.length > 0
+        ? (
+            gradePoints.reduce((sum, point) => sum + point, 0) /
+            gradePoints.length
+          ).toFixed(2)
+        : "0.00";
 
-  /* =========================================
-     CHANGE TYPE
-  ========================================= */
+    const passed = results.filter((item) => item?.grade !== "F").length;
 
-  const handleTypeChange = (type) => {
-    setActiveType(type);
-    setSelectedSemester("all");
+    const failed = results.filter((item) => item?.grade === "F").length;
+
+    return {
+      obtained,
+      total,
+      percentage,
+      averageGradePoint,
+      passed,
+      failed,
+    };
+  }, [results]);
+
+  const examSummary = useMemo(() => {
+    const preBoard = results.filter((item) => item?.examType === "pre-board");
+
+    const final = results.filter((item) => item?.examType === "final");
+
+    const calculateAverage = (items) => {
+      if (!items.length) return 0;
+
+      const obtained = items.reduce(
+        (sum, item) => sum + (Number(item?.marksObtained) || 0),
+        0,
+      );
+
+      const total = items.reduce(
+        (sum, item) => sum + (Number(item?.totalMarks) || 0),
+        0,
+      );
+
+      return total ? Math.round((obtained / total) * 100) : 0;
+    };
+
+    return {
+      preBoard: {
+        count: preBoard.length,
+        percentage: calculateAverage(preBoard),
+      },
+      final: {
+        count: final.length,
+        percentage: calculateAverage(final),
+      },
+    };
+  }, [results]);
+
+  const subjectResults = useMemo(() => {
+    const map = new Map();
+
+    results.forEach((result) => {
+      const subjectId =
+        result?.subject?._id || result?.subject?.code || result?.subject?.name;
+
+      if (!subjectId) return;
+
+      if (!map.has(subjectId)) {
+        map.set(subjectId, {
+          subject: result.subject,
+          results: [],
+        });
+      }
+
+      map.get(subjectId).results.push(result);
+    });
+
+    return Array.from(map.values());
+  }, [results]);
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setExamFilter("all");
   };
-
-  /* =========================================
-     LOADING
-  ========================================= */
 
   if (loading) {
     return (
-      <section className="min-h-[70vh]">
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="flex items-center gap-3 rounded-full border border-black/[0.08] bg-white/70 px-5 py-3 shadow-sm backdrop-blur-xl">
-            <Loader2 size={15} className="animate-spin text-black/60" />
+      <div className="min-h-screen bg-[#f7f7f5] px-5 py-8 sm:px-8 lg:px-10">
+        <div className="mx-auto max-w-[1500px] space-y-6">
+          <div className="h-10 w-48 animate-pulse rounded-xl bg-black/5" />
 
-            <span className="text-[11px] font-medium text-black/50">
-              Loading your results...
-            </span>
+          <div className="h-[260px] animate-pulse rounded-[28px] bg-black/5" />
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((item) => (
+              <div
+                key={item}
+                className="h-32 animate-pulse rounded-[24px] bg-black/5"
+              />
+            ))}
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            {[1, 2, 3, 4].map((item) => (
+              <div
+                key={item}
+                className="h-60 animate-pulse rounded-[26px] bg-black/5"
+              />
+            ))}
           </div>
         </div>
-      </section>
+      </div>
     );
   }
 
-  /* =========================================
-     ERROR
-  ========================================= */
-
   if (error) {
     return (
-      <section className="py-8">
-        <div className="rounded-[28px] border border-black/[0.08] bg-white/70 p-8 text-center shadow-[0_20px_70px_rgba(0,0,0,0.06)] backdrop-blur-2xl">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-black/[0.05]">
-            <Award size={20} className="text-black/60" />
+      <div className="min-h-screen bg-[#f7f7f5] px-5 py-8 sm:px-8 lg:px-10">
+        <div className="mx-auto flex min-h-[70vh] max-w-[1500px] items-center justify-center">
+          <div className="w-full max-w-lg rounded-[30px] border border-black/10 bg-white p-8 text-center shadow-[0_20px_70px_rgba(0,0,0,0.06)]">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-black text-white">
+              <XCircle size={24} />
+            </div>
+
+            <h2 className="text-xl font-semibold tracking-tight">
+              Results unavailable
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-black/45">{error}</p>
+
+            <button
+              onClick={() => fetchResults()}
+              className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-full bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-black/80"
+            >
+              <RefreshCw size={15} />
+              Try again
+            </button>
           </div>
-
-          <h2 className="mt-5 text-lg font-semibold tracking-[-0.03em]">
-            Results unavailable
-          </h2>
-
-          <p className="mx-auto mt-2 max-w-md text-[11px] leading-5 text-black/40">
-            {error}
-          </p>
-
-          <button
-            onClick={fetchResults}
-            className="mt-6 inline-flex items-center gap-2 rounded-full border border-black/[0.10] bg-black px-4 py-2.5 text-[10px] font-semibold text-white transition hover:opacity-80"
-          >
-            <RefreshCw size={13} />
-            Try again
-          </button>
         </div>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="space-y-6 py-6">
-      {/* =========================================
-          HEADER
-      ========================================= */}
-
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-black/[0.08] bg-white shadow-sm">
-              <GraduationCap size={15} />
+    <div className="min-h-screen bg-[#f7f7f5] px-5 py-7 sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-[1500px]">
+        {/* HEADER */}
+        <div className="mb-7 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+          <div>
+            <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-black/35">
+              <GraduationCap size={13} />
+              Academic performance
             </div>
 
-            <span className="text-[9px] font-semibold uppercase tracking-[0.25em] text-black/30">
-              Academic Records
-            </span>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-black sm:text-4xl">
+              Results
+            </h1>
+
+            <p className="mt-2 max-w-xl text-sm leading-6 text-black/45">
+              Track your academic performance, grades, marks and examination
+              progress from one place.
+            </p>
           </div>
 
-          <h1 className="text-[30px] font-semibold tracking-[-0.055em] sm:text-[38px]">
-            Results
-          </h1>
-
-          <p className="mt-2 max-w-xl text-[11px] leading-5 text-black/40">
-            View your pre-board performance and semester-wise final academic
-            results.
-          </p>
-        </div>
-
-        <button
-          onClick={fetchResults}
-          className="inline-flex w-fit items-center gap-2 rounded-full border border-black/[0.08] bg-white/70 px-4 py-2.5 text-[10px] font-semibold text-black/60 shadow-sm backdrop-blur-xl transition hover:bg-black/[0.04] hover:text-black"
-        >
-          <RefreshCw size={13} />
-          Refresh
-        </button>
-      </div>
-
-      {/* =========================================
-          RESULT TYPE SWITCHER
-      ========================================= */}
-
-      <div className="rounded-[24px] border border-black/[0.08] bg-white/65 p-1.5 shadow-[0_18px_60px_rgba(0,0,0,0.05)] backdrop-blur-2xl">
-        <div className="grid grid-cols-2 gap-1.5">
           <button
-            onClick={() => handleTypeChange("preboard")}
-            className={`group flex items-center justify-between rounded-[18px] px-4 py-3.5 text-left transition-all ${
-              activeType === "preboard"
-                ? "bg-black text-white shadow-lg"
-                : "text-black/50 hover:bg-black/[0.04] hover:text-black"
-            }`}
+            onClick={() => fetchResults(true)}
+            disabled={refreshing}
+            className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-black/10 bg-white px-5 py-3 text-xs font-semibold text-black transition hover:border-black hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-xl ${
-                  activeType === "preboard" ? "bg-white/10" : "bg-black/[0.05]"
-                }`}
-              >
-                <BookOpen size={14} />
-              </div>
-
-              <div>
-                <p className="text-[11px] font-semibold">Pre-Board Results</p>
-
-                <p
-                  className={`mt-0.5 text-[8px] ${
-                    activeType === "preboard"
-                      ? "text-white/45"
-                      : "text-black/30"
-                  }`}
-                >
-                  Internal examination
-                </p>
-              </div>
-            </div>
-
-            <ChevronRight size={14} />
-          </button>
-
-          <button
-            onClick={() => handleTypeChange("final")}
-            className={`group flex items-center justify-between rounded-[18px] px-4 py-3.5 text-left transition-all ${
-              activeType === "final"
-                ? "bg-black text-white shadow-lg"
-                : "text-black/50 hover:bg-black/[0.04] hover:text-black"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-xl ${
-                  activeType === "final" ? "bg-white/10" : "bg-black/[0.05]"
-                }`}
-              >
-                <Trophy size={14} />
-              </div>
-
-              <div>
-                <p className="text-[11px] font-semibold">Final Results</p>
-
-                <p
-                  className={`mt-0.5 text-[8px] ${
-                    activeType === "final" ? "text-white/45" : "text-black/30"
-                  }`}
-                >
-                  Semester academic result
-                </p>
-              </div>
-            </div>
-
-            <ChevronRight size={14} />
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+            Refresh results
           </button>
         </div>
-      </div>
 
-      {/* =========================================
-          SEMESTER FILTER
-      ========================================= */}
+        {/* HERO */}
+        <section className="relative mb-6 overflow-hidden rounded-[30px] bg-black px-7 py-8 text-white sm:px-9 sm:py-10">
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border border-white/10" />
+          <div className="absolute -right-8 top-8 h-40 w-40 rounded-full border border-white/10" />
 
-      {activeType === "final" && semesters.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-black/30">
-            Semester
-          </span>
-
-          <button
-            onClick={() => setSelectedSemester("all")}
-            className={`rounded-full border px-3.5 py-2 text-[9px] font-semibold transition ${
-              selectedSemester === "all"
-                ? "border-black bg-black text-white"
-                : "border-black/[0.08] bg-white/70 text-black/45 hover:bg-black/[0.04] hover:text-black"
-            }`}
-          >
-            All
-          </button>
-
-          {semesters.map((semester) => (
-            <button
-              key={semester}
-              onClick={() => setSelectedSemester(semester)}
-              className={`rounded-full border px-3.5 py-2 text-[9px] font-semibold transition ${
-                String(selectedSemester) === String(semester)
-                  ? "border-black bg-black text-white"
-                  : "border-black/[0.08] bg-white/70 text-black/45 hover:bg-black/[0.04] hover:text-black"
-              }`}
-            >
-              Semester {semester}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* =========================================
-          SUMMARY
-      ========================================= */}
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="rounded-[22px] border border-black/[0.08] bg-white/65 p-5 shadow-sm backdrop-blur-2xl">
-          <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-black/30">
-            Subjects
-          </p>
-
-          <p className="mt-3 text-2xl font-semibold tracking-[-0.05em]">
-            {filteredResults.length}
-          </p>
-
-          <p className="mt-1 text-[9px] text-black/35">Recorded subjects</p>
-        </div>
-
-        <div className="rounded-[22px] border border-black/[0.08] bg-white/65 p-5 shadow-sm backdrop-blur-2xl">
-          <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-black/30">
-            Average
-          </p>
-
-          <p className="mt-3 text-2xl font-semibold tracking-[-0.05em]">
-            {averagePercentage !== null
-              ? `${averagePercentage.toFixed(1)}%`
-              : "—"}
-          </p>
-
-          <p className="mt-1 text-[9px] text-black/35">Overall percentage</p>
-        </div>
-
-        <div className="rounded-[22px] border border-black/[0.08] bg-white/65 p-5 shadow-sm backdrop-blur-2xl">
-          <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-black/30">
-            Credits
-          </p>
-
-          <p className="mt-3 text-2xl font-semibold tracking-[-0.05em]">
-            {totalCredits || "—"}
-          </p>
-
-          <p className="mt-1 text-[9px] text-black/35">Total credit hours</p>
-        </div>
-
-        <div className="rounded-[22px] border border-black/[0.08] bg-white/65 p-5 shadow-sm backdrop-blur-2xl">
-          <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-black/30">
-            Passed
-          </p>
-
-          <p className="mt-3 text-2xl font-semibold tracking-[-0.05em]">
-            {passedSubjects}
-            <span className="ml-1 text-sm font-medium text-black/25">
-              / {filteredResults.length}
-            </span>
-          </p>
-
-          <p className="mt-1 text-[9px] text-black/35">Subjects passed</p>
-        </div>
-      </div>
-
-      {/* =========================================
-          RESULT CONTENT
-      ========================================= */}
-
-      {filteredResults.length === 0 ? (
-        <div className="rounded-[28px] border border-black/[0.08] bg-white/60 p-12 text-center shadow-sm backdrop-blur-2xl">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-black/[0.05]">
-            {activeType === "final" ? (
-              <Trophy size={21} className="text-black/50" />
-            ) : (
-              <BookOpen size={21} className="text-black/50" />
-            )}
-          </div>
-
-          <h3 className="mt-5 text-base font-semibold tracking-[-0.02em]">
-            No results available
-          </h3>
-
-          <p className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-black/35">
-            {activeType === "final"
-              ? "Your semester final result has not been published yet."
-              : "No pre-board result has been published yet."}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {/* RESULT TITLE */}
-
-          <div className="flex items-end justify-between">
+          <div className="relative grid gap-10 lg:grid-cols-[1.3fr_0.7fr] lg:items-center">
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-black/30">
-                {activeType === "final"
-                  ? "Final Academic Result"
-                  : "Internal Assessment"}
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
+                <Sparkles size={12} />
+                Academic record
+              </div>
+
+              <h2 className="max-w-2xl text-3xl font-semibold leading-tight tracking-[-0.04em] sm:text-4xl">
+                Your progress,
+                <br />
+                measured clearly.
+              </h2>
+
+              <p className="mt-4 max-w-xl text-sm leading-6 text-white/50">
+                Review your marks across examinations, understand your grades
+                and keep track of your academic progress.
               </p>
 
-              <h2 className="mt-1 text-xl font-semibold tracking-[-0.04em]">
-                {activeType === "final"
-                  ? selectedSemester === "all"
-                    ? "Semester Results"
-                    : `Semester ${selectedSemester}`
-                  : "Pre-Board Results"}
-              </h2>
+              <div className="mt-7 flex flex-wrap gap-2">
+                <div className="rounded-full border border-white/10 bg-white/[0.07] px-4 py-2 text-xs text-white/65">
+                  {results.length} result
+                  {results.length !== 1 ? "s" : ""}
+                </div>
+
+                <div className="rounded-full border border-white/10 bg-white/[0.07] px-4 py-2 text-xs text-white/65">
+                  {overallStats.passed} passed
+                </div>
+
+                {overallStats.failed > 0 && (
+                  <div className="rounded-full border border-white/10 bg-white/[0.07] px-4 py-2 text-xs text-white/65">
+                    {overallStats.failed} needs attention
+                  </div>
+                )}
+              </div>
             </div>
 
-            <span className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.15em] text-black/35">
-              {filteredResults.length} Subjects
+            <div className="flex justify-start lg:justify-end">
+              <div className="relative flex h-48 w-48 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
+                <div className="absolute inset-4 rounded-full border border-white/10" />
+
+                <div className="text-center">
+                  <p className="text-5xl font-semibold tracking-[-0.06em]">
+                    {overallStats.percentage}%
+                  </p>
+
+                  <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">
+                    Overall score
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* STATS */}
+        <section className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-[24px] border border-black/10 bg-white p-5 transition duration-300 hover:-translate-y-1 hover:border-black/20">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
+                <Target size={18} />
+              </div>
+
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">
+                Marks
+              </span>
+            </div>
+
+            <p className="text-3xl font-semibold tracking-[-0.05em]">
+              {overallStats.obtained}
+              <span className="text-lg text-black/25">
+                {" "}
+                / {overallStats.total}
+              </span>
+            </p>
+
+            <p className="mt-1 text-xs text-black/40">Total marks obtained</p>
+          </div>
+
+          <div className="rounded-[24px] border border-black/10 bg-white p-5 transition duration-300 hover:-translate-y-1 hover:border-black/20">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
+                <Award size={18} />
+              </div>
+
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">
+                GPA
+              </span>
+            </div>
+
+            <p className="text-3xl font-semibold tracking-[-0.05em]">
+              {overallStats.averageGradePoint}
+            </p>
+
+            <p className="mt-1 text-xs text-black/40">Average grade point</p>
+          </div>
+
+          <div className="rounded-[24px] border border-black/10 bg-white p-5 transition duration-300 hover:-translate-y-1 hover:border-black/20">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
+                <CheckCircle2 size={18} />
+              </div>
+
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">
+                Passed
+              </span>
+            </div>
+
+            <p className="text-3xl font-semibold tracking-[-0.05em]">
+              {overallStats.passed}
+            </p>
+
+            <p className="mt-1 text-xs text-black/40">Successful results</p>
+          </div>
+
+          <div className="rounded-[24px] border border-black/10 bg-white p-5 transition duration-300 hover:-translate-y-1 hover:border-black/20">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
+                <TrendingUp size={18} />
+              </div>
+
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">
+                Performance
+              </span>
+            </div>
+
+            <p className="text-3xl font-semibold tracking-[-0.05em]">
+              {getPerformanceLabel(overallStats.percentage)}
+            </p>
+
+            <p className="mt-1 text-xs text-black/40">Current academic level</p>
+          </div>
+        </section>
+
+        {/* EXAM SUMMARY */}
+        <section className="mb-7 grid gap-5 lg:grid-cols-2">
+          <div className="rounded-[26px] border border-black/10 bg-white p-6">
+            <div className="mb-6 flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-black/30">
+                  Examination overview
+                </p>
+
+                <h3 className="mt-1 text-lg font-semibold tracking-tight">
+                  Exam performance
+                </h3>
+              </div>
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
+                <BarChart3 size={17} />
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Pre-board</p>
+                    <p className="text-xs text-black/35">
+                      {examSummary.preBoard.count} result
+                      {examSummary.preBoard.count !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+
+                  <p className="text-sm font-semibold">
+                    {examSummary.preBoard.percentage}%
+                  </p>
+                </div>
+
+                <div className="h-2 overflow-hidden rounded-full bg-black/5">
+                  <div
+                    className="h-full rounded-full bg-black transition-all duration-700"
+                    style={{
+                      width: `${Math.min(
+                        examSummary.preBoard.percentage,
+                        100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Final examination</p>
+                    <p className="text-xs text-black/35">
+                      {examSummary.final.count} result
+                      {examSummary.final.count !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+
+                  <p className="text-sm font-semibold">
+                    {examSummary.final.percentage}%
+                  </p>
+                </div>
+
+                <div className="h-2 overflow-hidden rounded-full bg-black/5">
+                  <div
+                    className="h-full rounded-full bg-black transition-all duration-700"
+                    style={{
+                      width: `${Math.min(examSummary.final.percentage, 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[26px] border border-black/10 bg-white p-6">
+            <div className="mb-6 flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-black/30">
+                  Academic snapshot
+                </p>
+
+                <h3 className="mt-1 text-lg font-semibold tracking-tight">
+                  Current standing
+                </h3>
+              </div>
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
+                <GraduationCap size={17} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-[#f7f7f5] p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">
+                  Subjects
+                </p>
+
+                <p className="mt-3 text-2xl font-semibold tracking-tight">
+                  {subjectResults.length}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-[#f7f7f5] p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">
+                  Results
+                </p>
+
+                <p className="mt-3 text-2xl font-semibold tracking-tight">
+                  {results.length}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-[#f7f7f5] p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">
+                  Passed
+                </p>
+
+                <p className="mt-3 text-2xl font-semibold tracking-tight">
+                  {overallStats.passed}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-[#f7f7f5] p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">
+                  Attention
+                </p>
+
+                <p className="mt-3 text-2xl font-semibold tracking-tight">
+                  {overallStats.failed}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* FILTER BAR */}
+        <section className="mb-6 rounded-[26px] border border-black/10 bg-white p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative w-full lg:max-w-md">
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-black/30"
+              />
+
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search subject, code or grade..."
+                className="w-full rounded-2xl border border-black/10 bg-[#f7f7f5] py-3 pl-11 pr-4 text-sm outline-none transition placeholder:text-black/30 focus:border-black"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { label: "All results", value: "all" },
+                { label: "Pre-board", value: "pre-board" },
+                { label: "Final", value: "final" },
+              ].map((filter) => (
+                <button
+                  key={filter.value}
+                  onClick={() => setExamFilter(filter.value)}
+                  className={`cursor-pointer rounded-full border px-4 py-2.5 text-xs font-semibold transition ${
+                    examFilter === filter.value
+                      ? "border-black bg-black text-white"
+                      : "border-black/10 bg-white text-black/45 hover:border-black hover:text-black"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+
+              {(searchTerm || examFilter !== "all") && (
+                <button
+                  onClick={resetFilters}
+                  className="cursor-pointer rounded-full px-3 py-2.5 text-xs font-semibold text-black/40 transition hover:bg-black/5 hover:text-black"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* RESULTS */}
+        <section>
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-black/30">
+                Detailed record
+              </p>
+
+              <h3 className="mt-1 text-lg font-semibold tracking-tight">
+                Subject results
+              </h3>
+            </div>
+
+            <span className="text-xs text-black/35">
+              {filteredResults.length} shown
             </span>
           </div>
 
-          {/* DESKTOP TABLE */}
+          {filteredResults.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-black/15 bg-white px-6 py-16 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-black/5">
+                <Search size={20} className="text-black/35" />
+              </div>
 
-          <div className="hidden overflow-hidden rounded-[28px] border border-black/[0.08] bg-white/65 shadow-[0_20px_70px_rgba(0,0,0,0.05)] backdrop-blur-2xl md:block">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse">
-                <thead>
-                  <tr className="border-b border-black/[0.07]">
-                    <th className="px-6 py-4 text-left text-[8px] font-semibold uppercase tracking-[0.18em] text-black/30">
-                      Subject
-                    </th>
+              <h4 className="font-semibold">No results found</h4>
 
-                    <th className="px-4 py-4 text-center text-[8px] font-semibold uppercase tracking-[0.18em] text-black/30">
-                      Credits
-                    </th>
+              <p className="mt-2 text-sm text-black/40">
+                Try another search term or change the examination filter.
+              </p>
 
-                    <th className="px-4 py-4 text-center text-[8px] font-semibold uppercase tracking-[0.18em] text-black/30">
-                      Marks
-                    </th>
+              <button
+                onClick={resetFilters}
+                className="mt-5 cursor-pointer rounded-full bg-black px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-black/80"
+              >
+                Reset filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-2">
+              {filteredResults.map((result, index) => {
+                const percentage = getPercentage(result);
+                const grade = result?.grade || "—";
+                const examType = result?.examType || "";
 
-                    <th className="px-4 py-4 text-center text-[8px] font-semibold uppercase tracking-[0.18em] text-black/30">
-                      Percentage
-                    </th>
+                return (
+                  <article
+                    key={
+                      result?._id ||
+                      `${result?.subject?.code}-${examType}-${index}`
+                    }
+                    className="group relative overflow-hidden rounded-[28px] border border-black/10 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:border-black/25 hover:shadow-[0_20px_60px_rgba(0,0,0,0.07)]"
+                  >
+                    <div className="absolute left-0 top-0 h-1 w-full origin-left scale-x-0 bg-black transition-transform duration-300 group-hover:scale-x-100" />
 
-                    <th className="px-4 py-4 text-center text-[8px] font-semibold uppercase tracking-[0.18em] text-black/30">
-                      Grade
-                    </th>
+                    <div className="flex items-start justify-between gap-5">
+                      <div className="flex min-w-0 items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black text-white">
+                          <BookOpen size={19} />
+                        </div>
 
-                    <th className="px-6 py-4 text-right text-[8px] font-semibold uppercase tracking-[0.18em] text-black/30">
-                      Date
-                    </th>
-                  </tr>
-                </thead>
+                        <div className="min-w-0">
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-black/5 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-black/45">
+                              {result?.subject?.code || "SUBJECT"}
+                            </span>
 
-                <tbody>
-                  {filteredResults.map((result, index) => {
-                    const marks = getMarks(result);
-                    const total = getTotalMarks(result);
-                    const percentage = getPercentage(result);
-                    const grade = getGrade(result);
+                            <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-black/25">
+                              {examType === "pre-board" ? "Pre-board" : "Final"}
+                            </span>
+                          </div>
 
-                    return (
-                      <tr
-                        key={result?._id || result?.id || index}
-                        className="group border-b border-black/[0.06] last:border-b-0 transition-colors hover:bg-black/[0.025]"
+                          <h4 className="truncate text-base font-semibold tracking-tight">
+                            {result?.subject?.name || "Unknown subject"}
+                          </h4>
+
+                          <p className="mt-1 text-xs text-black/35">
+                            Semester {result?.subject?.semester || "—"} ·{" "}
+                            {result?.subject?.creditHours || "—"} credit hours
+                          </p>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-sm font-bold ${getGradeClass(
+                          grade,
+                        )}`}
                       >
-                        <td className="px-6 py-5">
+                        {grade}
+                      </div>
+                    </div>
+
+                    <div className="mt-7 grid grid-cols-[1fr_auto] items-end gap-5">
+                      <div>
+                        <div className="mb-2 flex items-end justify-between">
                           <div>
-                            <p className="text-[11px] font-semibold text-black">
-                              {getSubjectName(result)}
+                            <p className="text-3xl font-semibold tracking-[-0.05em]">
+                              {result?.marksObtained ?? 0}
+                              <span className="text-lg text-black/25">
+                                {" "}
+                                / {result?.totalMarks ?? 0}
+                              </span>
                             </p>
 
-                            {getSubjectCode(result) && (
-                              <p className="mt-1 text-[8px] font-medium uppercase tracking-[0.14em] text-black/30">
-                                {getSubjectCode(result)}
-                              </p>
-                            )}
+                            <p className="mt-1 text-xs text-black/35">
+                              Marks obtained
+                            </p>
                           </div>
-                        </td>
 
-                        <td className="px-4 py-5 text-center text-[10px] font-medium text-black/55">
-                          {getCredits(result)}
-                        </td>
-
-                        <td className="px-4 py-5 text-center">
-                          <span className="text-[11px] font-semibold">
-                            {marks ?? "—"}
+                          <span className="text-sm font-semibold">
+                            {percentage}%
                           </span>
+                        </div>
 
-                          <span className="text-[9px] text-black/30">
-                            {" "}
-                            / {total}
-                          </span>
-                        </td>
+                        <div className="h-2 overflow-hidden rounded-full bg-black/5">
+                          <div
+                            className="h-full rounded-full bg-black transition-all duration-700"
+                            style={{
+                              width: `${Math.min(percentage, 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
 
-                        <td className="px-4 py-5 text-center text-[10px] font-semibold">
-                          {percentage !== null
-                            ? `${percentage.toFixed(1)}%`
-                            : "—"}
-                        </td>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f7f7f5]">
+                        <ChevronRight
+                          size={18}
+                          className="text-black/30 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-black"
+                        />
+                      </div>
+                    </div>
 
-                        <td className="px-4 py-5 text-center">
-                          <span
-                            className={`inline-flex min-w-[36px] justify-center rounded-full px-2.5 py-1 text-[9px] font-bold ${
-                              grade === "F"
-                                ? "bg-black/[0.08] text-black/50"
-                                : "bg-black text-white"
-                            }`}
-                          >
-                            {grade}
-                          </span>
-                        </td>
+                    <div className="mt-6 grid gap-3 border-t border-black/5 pt-5 sm:grid-cols-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black/5">
+                          <FileText size={15} />
+                        </div>
 
-                        <td className="px-6 py-5 text-right text-[9px] text-black/40">
-                          {getDate(result)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        <div>
+                          <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-black/25">
+                            Examination
+                          </p>
 
-          {/* MOBILE CARDS */}
+                          <p className="mt-0.5 text-xs font-medium">
+                            {examType === "pre-board"
+                              ? "Pre-board"
+                              : "Final examination"}
+                          </p>
+                        </div>
+                      </div>
 
-          <div className="space-y-3 md:hidden">
-            {filteredResults.map((result, index) => {
-              const marks = getMarks(result);
-              const total = getTotalMarks(result);
-              const percentage = getPercentage(result);
-              const grade = getGrade(result);
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black/5">
+                          <Clock3 size={15} />
+                        </div>
 
-              return (
-                <div
-                  key={result?._id || result?.id || index}
-                  className="rounded-[24px] border border-black/[0.08] bg-white/65 p-5 shadow-sm backdrop-blur-2xl"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[12px] font-semibold">
-                        {getSubjectName(result)}
-                      </p>
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-black/25">
+                            Evaluated by
+                          </p>
 
-                      {getSubjectCode(result) && (
-                        <p className="mt-1 text-[8px] font-medium uppercase tracking-[0.15em] text-black/30">
-                          {getSubjectCode(result)}
+                          <p className="mt-0.5 truncate text-xs font-medium">
+                            {result?.teacher?.name || "Faculty"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {result?.remarks && (
+                      <div className="mt-5 rounded-2xl bg-[#f7f7f5] px-4 py-3">
+                        <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-black/25">
+                          Faculty remarks
                         </p>
-                      )}
-                    </div>
 
-                    <span className="rounded-full bg-black px-3 py-1.5 text-[9px] font-bold text-white">
-                      {grade}
-                    </span>
-                  </div>
+                        <p className="mt-1 text-xs leading-5 text-black/55">
+                          {result.remarks}
+                        </p>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
-                  <div className="mt-5 grid grid-cols-3 gap-3">
-                    <div className="rounded-2xl bg-black/[0.035] p-3">
-                      <p className="text-[7px] font-semibold uppercase tracking-[0.16em] text-black/30">
-                        Marks
-                      </p>
-
-                      <p className="mt-1.5 text-[11px] font-semibold">
-                        {marks ?? "—"}
-                        <span className="text-black/25"> / {total}</span>
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-black/[0.035] p-3">
-                      <p className="text-[7px] font-semibold uppercase tracking-[0.16em] text-black/30">
-                        Score
-                      </p>
-
-                      <p className="mt-1.5 text-[11px] font-semibold">
-                        {percentage !== null
-                          ? `${percentage.toFixed(1)}%`
-                          : "—"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-black/[0.035] p-3">
-                      <p className="text-[7px] font-semibold uppercase tracking-[0.16em] text-black/30">
-                        Credits
-                      </p>
-
-                      <p className="mt-1.5 text-[11px] font-semibold">
-                        {getCredits(result)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-2 text-[8px] text-black/35">
-                    <CalendarDays size={12} />
-                    {getDate(result)}
-                  </div>
+        {/* FOOTER INSIGHT */}
+        {results.length > 0 && (
+          <section className="mt-7 overflow-hidden rounded-[28px] border border-black/10 bg-white p-6 sm:p-7">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-black text-white">
+                  <TrendingUp size={18} />
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </section>
+
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/30">
+                    Performance insight
+                  </p>
+
+                  <h4 className="mt-1 text-base font-semibold">
+                    {overallStats.percentage >= 80
+                      ? "Your results show strong academic progress."
+                      : overallStats.percentage >= 60
+                        ? "Your results show steady academic progress."
+                        : "Keep building consistency across your subjects."}
+                  </h4>
+
+                  <p className="mt-1 max-w-2xl text-xs leading-5 text-black/40">
+                    Continue reviewing individual subject performance to
+                    understand where your marks are strongest and where
+                    additional preparation may help.
+                  </p>
+                </div>
+              </div>
+
+              <div className="shrink-0 rounded-full border border-black/10 px-4 py-2 text-xs font-semibold text-black/55">
+                GPA {overallStats.averageGradePoint}
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
   );
 };
 
